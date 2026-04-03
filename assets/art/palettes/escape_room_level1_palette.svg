@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="420" viewBox="0 0 1320 420">
+  <rect width="1320" height="420" fill="#11151C"/>
+  <text x="24" y="38" font-family="monospace" font-size="24" fill="#E6E6E6">Escape Room Level 1 Palette Swatch</text>
+  <text x="24" y="66" font-family="monospace" font-size="14" fill="#B8C0CC">Global core palette + zone accents (Bedroom / Hallways / Garden)</text>
+
+  <!-- Global core -->
+  <text x="24" y="98" font-family="monospace" font-size="16" fill="#E6E6E6">Global Core</text>
+
+  <g transform="translate(24,112)">
+    <rect x="0" y="0" width="72" height="72" fill="#0B0E13"/><text x="0" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#0B0E13</text>
+    <rect x="84" y="0" width="72" height="72" fill="#151A22"/><text x="84" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#151A22</text>
+    <rect x="168" y="0" width="72" height="72" fill="#222A35"/><text x="168" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#222A35</text>
+    <rect x="252" y="0" width="72" height="72" fill="#2F3A48"/><text x="252" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#2F3A48</text>
+    <rect x="336" y="0" width="72" height="72" fill="#536579"/><text x="336" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#536579</text>
+    <rect x="420" y="0" width="72" height="72" fill="#7D93A8"/><text x="420" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#7D93A8</text>
+
+    <rect x="0" y="112" width="72" height="72" fill="#C74646"/><text x="0" y="200" font-family="monospace" font-size="12" fill="#E6E6E6">#C74646</text>
+    <rect x="84" y="112" width="72" height="72" fill="#D97A2B"/><text x="84" y="200" font-family="monospace" font-size="12" fill="#E6E6E6">#D97A2B</text>
+    <rect x="168" y="112" width="72" height="72" fill="#E2BE45"/><text x="168" y="200" font-family="monospace" font-size="12" fill="#E6E6E6">#E2BE45</text>
+    <rect x="252" y="112" width="72" height="72" fill="#6E9D5D"/><text x="252" y="200" font-family="monospace" font-size="12" fill="#E6E6E6">#6E9D5D</text>
+    <rect x="336" y="112" width="72" height="72" fill="#5C9FB3"/><text x="336" y="200" font-family="monospace" font-size="12" fill="#E6E6E6">#5C9FB3</text>
+    <rect x="420" y="112" width="72" height="72" fill="#4A78D1"/><text x="420" y="200" font-family="monospace" font-size="12" fill="#E6E6E6">#4A78D1</text>
+  </g>
+
+  <!-- Zone accents -->
+  <text x="560" y="98" font-family="monospace" font-size="16" fill="#E6E6E6">Bedroom Accents</text>
+  <g transform="translate(560,112)">
+    <rect x="0" y="0" width="72" height="72" fill="#9F6B3E"/><text x="0" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#9F6B3E</text>
+    <rect x="84" y="0" width="72" height="72" fill="#C58A59"/><text x="84" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#C58A59</text>
+    <rect x="168" y="0" width="72" height="72" fill="#3E4A5A"/><text x="168" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#3E4A5A</text>
+  </g>
+
+  <text x="560" y="218" font-family="monospace" font-size="16" fill="#E6E6E6">Hallway Accents</text>
+  <g transform="translate(560,232)">
+    <rect x="0" y="0" width="72" height="72" fill="#2A3442"/><text x="0" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#2A3442</text>
+    <rect x="84" y="0" width="72" height="72" fill="#2E4C52"/><text x="84" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#2E4C52</text>
+    <rect x="168" y="0" width="72" height="72" fill="#4A5A6A"/><text x="168" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#4A5A6A</text>
+  </g>
+
+  <text x="860" y="98" font-family="monospace" font-size="16" fill="#E6E6E6">Garden Accents</text>
+  <g transform="translate(860,112)">
+    <rect x="0" y="0" width="72" height="72" fill="#1A2B33"/><text x="0" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#1A2B33</text>
+    <rect x="84" y="0" width="72" height="72" fill="#355E6A"/><text x="84" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#355E6A</text>
+    <rect x="168" y="0" width="72" height="72" fill="#88AFC1"/><text x="168" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#88AFC1</text>
+  </g>
+
+  <text x="860" y="218" font-family="monospace" font-size="16" fill="#E6E6E6">Skin / Item Utility</text>
+  <g transform="translate(860,232)">
+    <rect x="0" y="0" width="72" height="72" fill="#B9876B"/><text x="0" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#B9876B</text>
+    <rect x="84" y="0" width="72" height="72" fill="#8D604B"/><text x="84" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#8D604B</text>
+    <rect x="168" y="0" width="72" height="72" fill="#D7D7CC"/><text x="168" y="88" font-family="monospace" font-size="12" fill="#E6E6E6">#D7D7CC</text>
+  </g>
+
+  <text x="24" y="388" font-family="monospace" font-size="13" fill="#B8C0CC">Tip: keep active scene colors under 24 and reserve strongest contrast for danger + objectives.</text>
+</svg>
