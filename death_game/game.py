@@ -113,15 +113,15 @@ AREA_MAPS = {
     ],
     "area2": [
         "####################",
-        "#..................#",
-        "#....####..........#",
-        "#..................#",
-        "#..........####....#",
-        "#..................#",
-        "#..................#",
-        "#..................#",
-        "#.........P........#",
-        "#..................#",
+        "########....########",
+        "########....########",
+        "########....########",
+        "########....########",
+        "########....########",
+        "########....########",
+        "########....########",
+        "########..P.########",
+        "########....########",
         "####################",
     ],
     "area3": [
@@ -327,8 +327,19 @@ class Game:
 
         self.state = "explore"
         self.objective = "Find key"
-        self.message = "Wake up... find a way out."
-        self.message_timer = 3.0
+        self.message = ""
+        self.message_timer = 0.0
+        self.intro_title = "LEVEL 1: ESCAPE"
+        self.intro_lines = [
+            "Wake up in B1. Find the key and escape.",
+            "WASD Move   E Interact",
+            "Q Flashlight   SPACE Attack",
+            "TAB Inventory   F Equip",
+            "L Labels   H Use Bandage",
+        ]
+        self.intro_hint = "Press SPACE or E to start"
+        self.intro_timer = 8.5
+        self.intro_fade_duration = 1.0
         self.damage_flash = 0.0
         self.hit_cooldown = 0.0
         self.battery_tick = 0.0
@@ -365,15 +376,6 @@ class Game:
         self.final_exit_unlocked = False
         self.time_alive = 0.0
 
-        self.tutorial_lines = [
-            "WASD Move",
-            "E Interact near objects",
-            "TAB Open Inventory",
-            "SPACE Attack",
-            "Q Toggle Flashlight",
-        ]
-        self.tutorial_index = 0
-        self.tutorial_timer = 0.0
         self.checkpoints: dict[str, tuple[int, int]] = {}
 
         self.load_visual_assets()
@@ -562,9 +564,10 @@ class Game:
 
     def setup_area2_lasers(self) -> None:
         self.lasers = [
-            LaserBeam(pygame.Rect(5 * TILE_SIZE, 3 * TILE_SIZE + 7, 10 * TILE_SIZE, 2), 1.4, 1.0, 0.0),
-            LaserBeam(pygame.Rect(9 * TILE_SIZE + 7, 2 * TILE_SIZE, 2, 6 * TILE_SIZE), 1.0, 1.2, 0.5),
-            LaserBeam(pygame.Rect(4 * TILE_SIZE, 7 * TILE_SIZE + 7, 11 * TILE_SIZE, 2), 1.2, 1.1, 0.9),
+            LaserBeam(pygame.Rect(8 * TILE_SIZE, 3 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.25, 0.7, 0.0),
+            LaserBeam(pygame.Rect(8 * TILE_SIZE, 5 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.15, 0.75, 0.35),
+            LaserBeam(pygame.Rect(8 * TILE_SIZE, 7 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.1, 0.8, 0.7),
+            LaserBeam(pygame.Rect(9 * TILE_SIZE + 7, 2 * TILE_SIZE, 2, 6 * TILE_SIZE), 0.95, 0.85, 1.05),
         ]
 
     def get_flashlight_radius(self) -> float:
@@ -746,6 +749,10 @@ class Game:
                     pygame.quit()
                     sys.exit(0)
 
+                if self.intro_timer > 0 and event.key in (pygame.K_SPACE, pygame.K_e, pygame.K_RETURN):
+                    self.intro_timer = 0.0
+                    continue
+
                 if event.key == pygame.K_l:
                     self.show_labels = not self.show_labels
                     self.message = "Labels ON" if self.show_labels else "Labels OFF"
@@ -787,19 +794,13 @@ class Game:
                         self.choose_dilemma("arm")
 
     def update_explore(self, dt: float) -> None:
+        self.intro_timer = max(0.0, self.intro_timer - dt)
         self.message_timer = max(0.0, self.message_timer - dt)
         self.damage_flash = max(0.0, self.damage_flash - dt)
         self.hit_cooldown = max(0.0, self.hit_cooldown - dt)
         self.attack_cooldown = max(0.0, self.attack_cooldown - dt)
         self.attack_anim = max(0.0, self.attack_anim - dt)
-        self.tutorial_timer += dt
         self.lasers_disabled_timer = max(0.0, self.lasers_disabled_timer - dt)
-
-        if self.tutorial_index < len(self.tutorial_lines) and self.tutorial_timer >= 4.0:
-            self.message = self.tutorial_lines[self.tutorial_index]
-            self.message_timer = 2.2
-            self.tutorial_index += 1
-            self.tutorial_timer = 0.0
 
         move = pygame.Vector2(0, 0)
         keys = pygame.key.get_pressed()
@@ -1209,6 +1210,7 @@ class Game:
         self.draw_particles()
         self.draw_darkness_overlay()
         self.draw_atmosphere_front()
+        self.draw_intro_overlay()
 
         if self.inventory_anim > 0.01:
             self.draw_inventory_overlay()
@@ -1249,6 +1251,46 @@ class Game:
         self.draw_zone_card_screen(view_rect)
         self.draw_player_popup_screen(view_rect)
         pygame.display.flip()
+
+    def draw_intro_overlay(self) -> None:
+        if self.intro_timer <= 0 or self.state != "explore":
+            return
+
+        fade_t = 1.0
+        if self.intro_timer < self.intro_fade_duration:
+            fade_t = max(0.0, min(1.0, self.intro_timer / self.intro_fade_duration))
+        panel_alpha = int(218 * fade_t)
+        text_alpha = int(255 * fade_t)
+
+        panel_w = 274
+        panel_h = 112
+        x = (INTERNAL_WIDTH - panel_w) // 2
+        y = (INTERNAL_HEIGHT - panel_h) // 2 + 8
+
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((10, 16, 25, panel_alpha))
+        self.canvas.blit(panel, (x, y))
+        pygame.draw.rect(self.canvas, (104, 126, 150), pygame.Rect(x, y, panel_w, panel_h), 1)
+
+        title = self.fit_text(self.intro_title, self.big_font, panel_w - 18)
+        title_w, _ = self.big_font.size(title)
+        self.blit_pixel_text_on(self.canvas, title, x + (panel_w - title_w) // 2, y + 8, self.big_font, (236, 243, 250))
+
+        line_y = y + 30
+        for line in self.intro_lines:
+            draw_line = self.fit_text(line, self.font, panel_w - 16)
+            line_w, _ = self.font.size(draw_line)
+            self.blit_pixel_text_on(self.canvas, draw_line, x + (panel_w - line_w) // 2, line_y, self.font, (218, 230, 240))
+            line_y += self.font.get_height() + 1
+
+        hint = self.fit_text(self.intro_hint, self.small_font, panel_w - 16)
+        hint_w, _ = self.small_font.size(hint)
+        self.blit_pixel_text_on(self.canvas, hint, x + (panel_w - hint_w) // 2, y + panel_h - 13, self.small_font, (190, 208, 226))
+
+        if text_alpha < 255:
+            fade_surface = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            fade_surface.fill((0, 0, 0, 255 - text_alpha))
+            self.canvas.blit(fade_surface, (x, y), special_flags=pygame.BLEND_RGBA_SUB)
 
     def draw_shell_ui(self, view_rect: pygame.Rect) -> None:
         # Top horizontal shell panel around gameplay.
