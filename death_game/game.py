@@ -61,15 +61,15 @@ AREA_MAPS = {
     ],
     "hub": [
         "####################",
-        "#..................#",
-        "#..##..........##..#",
-        "#..##..........##..#",
-        "#..................#",
-        "#.........P........#",
-        "#..................#",
-        "#..##..........##..#",
-        "#..##..........##..#",
-        "#..................#",
+        "########....########",
+        "########....########",
+        "########.....#######",
+        "#######.....########",
+        "########....########",
+        "########.....#######",
+        "########....########",
+        "########..P.########",
+        "########....########",
         "####################",
     ],
     "storage": [
@@ -113,15 +113,15 @@ AREA_MAPS = {
     ],
     "area2": [
         "####################",
-        "########....########",
-        "########.....#######",
-        "########....########",
-        "#######......#######",
-        "########....########",
-        "########.....#######",
-        "########....########",
-        "########..P.########",
-        "########....########",
+        "#..................#",
+        "#....####..........#",
+        "#..................#",
+        "#..........####....#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#.........P........#",
+        "#..................#",
         "####################",
     ],
     "area3": [
@@ -178,22 +178,22 @@ AREA_DOORS: dict[str, list[dict[str, object]]] = {
     ],
     "hub": [
         {"id": "D-01R", "tile": (10, 9), "to": "area1", "spawn": (10, 2), "label": "B1-01 RESIDENTIAL UNIT", "requirement": "none"},
-        {"id": "D-02", "tile": (3, 1), "to": "area2", "spawn": (10, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
-        {"id": "D-05", "tile": (16, 9), "to": "maintenance", "spawn": (2, 2), "label": "B1-05 MAINTENANCE", "requirement": "none"},
+        {"id": "D-02", "tile": (10, 1), "to": "area2", "spawn": (10, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
+        {"id": "D-03", "tile": (12, 3), "to": "storage", "spawn": (2, 2), "label": "B1-03 STORAGE ROOM", "requirement": "none"},
+        {"id": "D-04", "tile": (12, 6), "to": "medbay", "spawn": (2, 2), "label": "B1-04 MED BAY", "requirement": "none"},
+        {"id": "D-05", "tile": (7, 4), "to": "maintenance", "spawn": (2, 2), "label": "B1-05 MAINTENANCE", "requirement": "none"},
     ],
     "storage": [
-        {"id": "D-03R", "tile": (10, 9), "to": "area2", "spawn": (11, 2), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
+        {"id": "D-03R", "tile": (10, 9), "to": "hub", "spawn": (11, 3), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
     ],
     "medbay": [
-        {"id": "D-04R", "tile": (10, 9), "to": "area2", "spawn": (11, 6), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
+        {"id": "D-04R", "tile": (10, 9), "to": "hub", "spawn": (11, 6), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
     ],
     "maintenance": [
-        {"id": "D-05R", "tile": (10, 1), "to": "hub", "spawn": (16, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+        {"id": "D-05R", "tile": (10, 1), "to": "hub", "spawn": (8, 4), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
     ],
     "area2": [
-        {"id": "D-02R", "tile": (7, 4), "to": "hub", "spawn": (4, 2), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
-        {"id": "D-03", "tile": (12, 2), "to": "storage", "spawn": (2, 2), "label": "B1-03 STORAGE ROOM", "requirement": "none"},
-        {"id": "D-04", "tile": (12, 6), "to": "medbay", "spawn": (2, 2), "label": "B1-04 MED BAY", "requirement": "none"},
+        {"id": "D-02R", "tile": (10, 9), "to": "hub", "spawn": (10, 2), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
         {
             "id": "D-06",
             "tile": (10, 1),
@@ -562,9 +562,9 @@ class Game:
 
     def setup_area2_lasers(self) -> None:
         self.lasers = [
-            LaserBeam(pygame.Rect(8 * TILE_SIZE, 3 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.3, 1.0, 0.0),
-            LaserBeam(pygame.Rect(8 * TILE_SIZE, 6 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.1, 1.2, 0.45),
-            LaserBeam(pygame.Rect(10 * TILE_SIZE + 7, 4 * TILE_SIZE, 2, 3 * TILE_SIZE), 1.0, 1.0, 0.8),
+            LaserBeam(pygame.Rect(5 * TILE_SIZE, 3 * TILE_SIZE + 7, 10 * TILE_SIZE, 2), 1.4, 1.0, 0.0),
+            LaserBeam(pygame.Rect(9 * TILE_SIZE + 7, 2 * TILE_SIZE, 2, 6 * TILE_SIZE), 1.0, 1.2, 0.5),
+            LaserBeam(pygame.Rect(4 * TILE_SIZE, 7 * TILE_SIZE + 7, 11 * TILE_SIZE, 2), 1.2, 1.1, 0.9),
         ]
 
     def get_flashlight_radius(self) -> float:
