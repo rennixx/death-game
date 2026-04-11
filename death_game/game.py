@@ -45,19 +45,179 @@ PALETTE = {
     "health_low": (199, 70, 70),
 }
 
-LEVEL_MAP = [
-    "####################",
-    "##########D#########",
-    "#..................#",
-    "#..d............c..#",
-    "#..................#",
-    "#..................#",
-    "#.........P........#",
-    "#..................#",
-    "#.b.s..............#",
-    "#..................#",
-    "####################",
-]
+AREA_MAPS = {
+    "area1": [
+        "####################",
+        "##########D#########",
+        "#..d...............#",
+        "#.............c....#",
+        "#..................#",
+        "#......P...........#",
+        "#..b.s.............#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "####################",
+    ],
+    "hub": [
+        "####################",
+        "#..................#",
+        "#..##..........##..#",
+        "#..##..........##..#",
+        "#..................#",
+        "#.........P........#",
+        "#..................#",
+        "#..##..........##..#",
+        "#..##..........##..#",
+        "#..................#",
+        "####################",
+    ],
+    "storage": [
+        "####################",
+        "#..............M...#",
+        "#..P...............#",
+        "#..................#",
+        "#.....##...........#",
+        "#..................#",
+        "#.......M..........#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "####################",
+    ],
+    "medbay": [
+        "####################",
+        "#.....H............#",
+        "#..P...............#",
+        "#..................#",
+        "#........W.........#",
+        "#..................#",
+        "#.........H........#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "####################",
+    ],
+    "maintenance": [
+        "####################",
+        "#..................#",
+        "#..P...............#",
+        "#..................#",
+        "#....R.............#",
+        "#..................#",
+        "#........k.........#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "####################",
+    ],
+    "area2": [
+        "####################",
+        "#P.................#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "#..............G...#",
+        "#..................#",
+        "####################",
+    ],
+    "area3": [
+        "####################",
+        "#..............G...#",
+        "#..................#",
+        "#.......E..........#",
+        "#..................#",
+        "#..................#",
+        "#........P.........#",
+        "#..................#",
+        "#..................#",
+        "#..................#",
+        "####################",
+    ],
+    "final": [
+        "####################",
+        "#P.................#",
+        "#...............W..#",
+        "#..................#",
+        "#....W.............#",
+        "#..................#",
+        "#..............W...#",
+        "#..................#",
+        "#..............X...#",
+        "#..................#",
+        "####################",
+    ],
+}
+
+AREA_FLOW_ORDER = ["area1", "hub", "storage", "medbay", "maintenance", "area2", "area3", "final"]
+AREA_META = {
+    "area1": ("B1-01", "RESIDENTIAL UNIT", "UNIT"),
+    "hub": ("B1-02", "MAIN HALLWAY", "HALL"),
+    "storage": ("B1-03", "STORAGE ROOM", "STOR"),
+    "medbay": ("B1-04", "MED BAY", "MED"),
+    "maintenance": ("B1-05", "MAINTENANCE CORRIDOR", "MNT"),
+    "area2": ("B1-06", "SECURITY CHECKPOINT", "SEC"),
+    "area3": ("B1-07", "ELEVATOR LOBBY", "LIFT"),
+    "final": ("B1-08", "EXIT HALL", "EXIT"),
+}
+
+AREA_DOORS: dict[str, list[dict[str, object]]] = {
+    "area1": [
+        {
+            "id": "D-01",
+            "tile": (10, 1),
+            "to": "hub",
+            "spawn": (10, 8),
+            "label": "B1-02 MAIN HALLWAY",
+            "requirement": "unit_door",
+            "locked": "Door locked. Need unit key",
+        }
+    ],
+    "hub": [
+        {"id": "D-01R", "tile": (10, 9), "to": "area1", "spawn": (10, 2), "label": "B1-01 RESIDENTIAL UNIT", "requirement": "none"},
+        {"id": "D-02", "tile": (3, 1), "to": "area2", "spawn": (2, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
+        {"id": "D-03", "tile": (16, 1), "to": "storage", "spawn": (2, 2), "label": "B1-03 STORAGE ROOM", "requirement": "none"},
+        {"id": "D-04", "tile": (3, 9), "to": "medbay", "spawn": (2, 2), "label": "B1-04 MED BAY", "requirement": "none"},
+        {"id": "D-05", "tile": (16, 9), "to": "maintenance", "spawn": (2, 2), "label": "B1-05 MAINTENANCE", "requirement": "none"},
+    ],
+    "storage": [
+        {"id": "D-03R", "tile": (10, 9), "to": "hub", "spawn": (16, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+    ],
+    "medbay": [
+        {"id": "D-04R", "tile": (10, 9), "to": "hub", "spawn": (3, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+    ],
+    "maintenance": [
+        {"id": "D-05R", "tile": (10, 1), "to": "hub", "spawn": (16, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+    ],
+    "area2": [
+        {"id": "D-02R", "tile": (2, 9), "to": "hub", "spawn": (4, 2), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+        {
+            "id": "D-06",
+            "tile": (15, 8),
+            "to": "area3",
+            "spawn": (2, 8),
+            "label": "B1-07 ELEVATOR LOBBY",
+            "requirement": "lasers_off",
+            "locked": "Checkpoint sealed. Enable maintenance breaker",
+        },
+    ],
+    "area3": [
+        {"id": "D-06R", "tile": (2, 9), "to": "area2", "spawn": (16, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
+        {
+            "id": "D-08",
+            "tile": (15, 1),
+            "to": "final",
+            "spawn": (2, 1),
+            "label": "B1-08 EXIT HALL",
+            "requirement": "elevator_ready",
+            "locked": "Elevator lock active. Use terminal first",
+        },
+    ],
+    "final": [],
+}
 
 
 @dataclass
@@ -94,6 +254,14 @@ class Particle:
     size: int
 
 
+@dataclass
+class LaserBeam:
+    rect: pygame.Rect
+    on_time: float
+    off_time: float
+    phase: float
+
+
 class Game:
     def __init__(self) -> None:
         # Force nearest-neighbor scaling for crisp pixel output.
@@ -103,15 +271,20 @@ class Game:
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.DOUBLEBUF | pygame.RESIZABLE)
         self.canvas = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT))
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont("consolas", 8)
-        self.big_font = pygame.font.SysFont("consolas", 13)
-        self.small_font = pygame.font.SysFont("consolas", 7)
-        self.ui_font = pygame.font.SysFont("segoeui", 12)
-        self.ui_small_font = pygame.font.SysFont("segoeui", 10)
+        self.font = pygame.font.SysFont("consolas", 9, bold=True)
+        self.big_font = pygame.font.SysFont("consolas", 14, bold=True)
+        self.small_font = pygame.font.SysFont("consolas", 8, bold=True)
+        self.inventory_title_font = pygame.font.SysFont("consolas", 10, bold=True)
+        self.inventory_font = pygame.font.SysFont("consolas", 9, bold=True)
+        self.inventory_small_font = pygame.font.SysFont("consolas", 8, bold=True)
+        self.ui_font = pygame.font.SysFont("consolas", 11, bold=True)
+        self.ui_small_font = pygame.font.SysFont("consolas", 10, bold=True)
         self.assets_root = Path(__file__).resolve().parents[1] / "assets" / "art"
 
-        self.world_width = len(LEVEL_MAP[0]) * TILE_SIZE
-        self.world_height = len(LEVEL_MAP) * TILE_SIZE
+        self.current_area = "area1"
+        self.current_map: list[str] = AREA_MAPS[self.current_area]
+        self.world_width = len(self.current_map[0]) * TILE_SIZE
+        self.world_height = len(self.current_map) * TILE_SIZE
 
         self.walls: list[pygame.Rect] = []
         self.traps: dict[tuple[int, int], bool] = {}
@@ -119,11 +292,21 @@ class Game:
         self.wolves: list[Wolf] = []
         self.dark_tiles: set[tuple[int, int]] = set()
         self.furniture: dict[tuple[int, int], str] = {}
+        self.lasers: list[LaserBeam] = []
+        self.current_doors: list[dict[str, object]] = []
 
         self.player = pygame.Rect(16, 16, 10, 12)
         self.player_speed = 70.0
         self.base_player_speed = 70.0
+        self.player_accel = 360.0
+        self.player_drag = 8.0
+        self.player_pos = pygame.Vector2(float(self.player.x), float(self.player.y))
+        self.player_vel = pygame.Vector2(0, 0)
         self.last_dir = pygame.Vector2(1, 0)
+        self.walk_cycle = 0.0
+        self.attack_anim = 0.0
+        self.attack_duration = 0.18
+        self.attack_dir = pygame.Vector2(1, 0)
 
         self.has_key = False
         self.has_flashlight = False
@@ -132,7 +315,7 @@ class Game:
         self.bandages = 0
         self.health = 100
         self.max_health = 100
-        self.has_knife = True
+        self.has_knife = False
 
         self.inventory_selected = 0
         self.inventory_cols = 4
@@ -152,18 +335,32 @@ class Game:
         self.inventory_anim = 0.0
         self.dilemma_anim = 0.0
         self.banner_anim = 0.0
+        self.zone_card_anim = 0.0
         self.shake_strength = 0.0
         self.shake_time = 0.0
         self.particles: list[Particle] = []
         self.sprite_cache: dict[str, pygame.Surface] = {}
+        self.zone_card_title = ""
+        self.zone_card_subtitle = ""
+        self.zone_card_timer = 0.0
+        self.visited_areas: set[str] = set()
 
         self.locked_door_tile = (10, 1)
         self.exit_tile = (10, 1)
+        self.transition_tile = (0, 0)
+        self.breaker_tile = (0, 0)
+        self.elevator_terminal_tile = (0, 0)
+        self.final_exit_tile = (0, 0)
         self.door_unlocked = False
         self.desk_searched = False
         self.cabinet_searched = False
         self.bed_searched = False
         self.dilemma_triggered = False
+        self.area2_cleared = False
+        self.lasers_disabled_timer = 0.0
+        self.elevator_choice_made = False
+        self.choice_result = ""
+        self.final_exit_unlocked = False
         self.time_alive = 0.0
 
         self.tutorial_lines = [
@@ -175,9 +372,10 @@ class Game:
         ]
         self.tutorial_index = 0
         self.tutorial_timer = 0.0
+        self.checkpoints: dict[str, tuple[int, int]] = {}
 
         self.load_visual_assets()
-        self.load_level()
+        self.load_area(self.current_area)
 
     def load_visual_assets(self) -> None:
         self.sprite_cache["player"] = self.load_sprite(
@@ -192,6 +390,7 @@ class Game:
         self.sprite_cache["battery"] = self.load_sprite(self.assets_root / "items" / "item_battery_a01.png", (8, 8))
         self.sprite_cache["bandage"] = self.load_sprite(self.assets_root / "items" / "item_bandage_a01.png", (8, 8))
         self.sprite_cache["flashlight"] = self.load_sprite(self.assets_root / "items" / "item_flashlight_a01.png", (8, 8))
+        self.sprite_cache["knife"] = self.load_sprite(self.assets_root / "items" / "item_knife_pickup_a01.png", (8, 8))
 
     def load_sprite(self, path: Path, size: tuple[int, int]) -> pygame.Surface:
         if path.exists():
@@ -207,16 +406,36 @@ class Game:
         pygame.draw.rect(placeholder, (120, 140, 164), placeholder.get_rect(), 1)
         return placeholder
 
-    def load_level(self) -> None:
-        for y, row in enumerate(LEVEL_MAP):
+    def load_area(self, area_id: str, spawn_override: tuple[int, int] | None = None) -> None:
+        self.current_area = area_id
+        self.visited_areas.add(area_id)
+        self.current_map = AREA_MAPS[area_id]
+        self.world_width = len(self.current_map[0]) * TILE_SIZE
+        self.world_height = len(self.current_map) * TILE_SIZE
+        self.current_doors = AREA_DOORS.get(area_id, [])
+
+        self.walls.clear()
+        self.traps.clear()
+        self.pickups.clear()
+        self.wolves.clear()
+        self.dark_tiles.clear()
+        self.furniture.clear()
+        self.lasers.clear()
+        self.lasers_disabled_timer = 0.0
+        self.breaker_tile = (0, 0)
+        self.transition_tile = (0, 0)
+        self.elevator_terminal_tile = (0, 0)
+        self.final_exit_tile = (0, 0)
+
+        spawn = (1, 1)
+        for y, row in enumerate(self.current_map):
             for x, cell in enumerate(row):
                 world_rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
                 if cell == "#":
                     self.walls.append(world_rect)
                 elif cell == "P":
-                    self.player.x = x * TILE_SIZE + 3
-                    self.player.y = y * TILE_SIZE + 2
+                    spawn = (x, y)
                 elif cell == "D":
                     self.locked_door_tile = (x, y)
                     self.exit_tile = (x, y)
@@ -228,6 +447,162 @@ class Game:
                     self.furniture[(x, y)] = "bed"
                 elif cell == "s":
                     self.furniture[(x, y)] = "stool"
+                elif cell == "R":
+                    self.breaker_tile = (x, y)
+                elif cell == "G":
+                    self.transition_tile = (x, y)
+                elif cell == "M":
+                    self.pickups.append(ItemPickup("battery", x, y))
+                elif cell == "H":
+                    self.pickups.append(ItemPickup("bandage", x, y))
+                elif cell == "E":
+                    self.elevator_terminal_tile = (x, y)
+                elif cell == "k":
+                    self.pickups.append(ItemPickup("knife", x, y))
+                elif cell == "W":
+                    self.wolves.append(Wolf(x * TILE_SIZE + 2, y * TILE_SIZE + 2))
+                elif cell == "X":
+                    self.final_exit_tile = (x, y)
+
+        self.checkpoints[area_id] = spawn
+        spawn_tile = spawn_override if spawn_override is not None else spawn
+        self.player.x = spawn_tile[0] * TILE_SIZE + 3
+        self.player.y = spawn_tile[1] * TILE_SIZE + 2
+        self.player_pos.update(float(self.player.x), float(self.player.y))
+        self.player_vel.update(0, 0)
+
+        if area_id == "area2":
+            self.setup_area2_lasers()
+
+        if area_id == "final":
+            self.final_exit_unlocked = False
+
+        zone_code, zone_name, _ = self.get_area_meta(area_id)
+        self.zone_card_title = f"LEVEL 1  |  {zone_code}"
+        self.zone_card_subtitle = zone_name
+        self.zone_card_timer = 2.2
+
+        self.set_objective_for_area()
+
+    def get_area_meta(self, area_id: str | None = None) -> tuple[str, str, str]:
+        key = area_id if area_id is not None else self.current_area
+        return AREA_META.get(key, ("B1-??", "UNKNOWN ZONE", "???"))
+
+    def get_area_doors(self, area_id: str | None = None) -> list[dict[str, object]]:
+        key = area_id if area_id is not None else self.current_area
+        return AREA_DOORS.get(key, [])
+
+    def get_nearby_door(self, tile_x: int, tile_y: int) -> dict[str, object] | None:
+        for door in self.current_doors:
+            dx, dy = door["tile"]
+            if abs(tile_x - dx) + abs(tile_y - dy) <= 1:
+                return door
+        return None
+
+    def is_door_locked(self, door: dict[str, object]) -> bool:
+        requirement = str(door.get("requirement", "none"))
+        if requirement == "unit_door":
+            return not self.door_unlocked
+        if requirement == "lasers_off":
+            return not self.area2_cleared
+        if requirement == "elevator_ready":
+            return not self.elevator_choice_made
+        return False
+
+    def get_door_prompt(self, door: dict[str, object]) -> str:
+        requirement = str(door.get("requirement", "none"))
+        door_id = str(door.get("id", "D-??"))
+        label = str(door.get("label", "UNKNOWN ZONE"))
+        if requirement == "unit_door" and not self.door_unlocked:
+            return "Press E to unlock unit door" if self.has_key else str(door.get("locked", "Door locked"))
+        if requirement == "lasers_off" and not self.area2_cleared:
+            return str(door.get("locked", "Door sealed"))
+        if requirement == "elevator_ready" and not self.elevator_choice_made:
+            return str(door.get("locked", "Terminal authorization required"))
+        return f"Press E: {door_id} -> {label}"
+
+    def interact_door(self, door: dict[str, object]) -> bool:
+        requirement = str(door.get("requirement", "none"))
+        if requirement == "unit_door" and not self.door_unlocked:
+            if self.has_key:
+                self.door_unlocked = True
+                self.set_objective_for_area()
+                self.message = "Unit door unlocked. Press E to enter hallway"
+                self.message_timer = 1.3
+            else:
+                self.message = str(door.get("locked", "Door locked"))
+                self.message_timer = 1.1
+            return True
+
+        if requirement == "lasers_off" and not self.area2_cleared:
+            self.message = str(door.get("locked", "Checkpoint sealed"))
+            self.message_timer = 1.2
+            return True
+
+        if requirement == "elevator_ready" and not self.elevator_choice_made:
+            self.message = str(door.get("locked", "Terminal authorization required"))
+            self.message_timer = 1.2
+            return True
+
+        target_area = str(door.get("to", self.current_area))
+        spawn = door.get("spawn", None)
+        spawn_override = spawn if isinstance(spawn, tuple) else None
+        self.load_area(target_area, spawn_override)
+        zone_code, zone_name, _ = self.get_area_meta(target_area)
+        self.message = f"Entering {zone_code} {zone_name}"
+        self.message_timer = 1.4
+        return True
+
+    def setup_area2_lasers(self) -> None:
+        self.lasers = [
+            LaserBeam(pygame.Rect(4 * TILE_SIZE, 3 * TILE_SIZE + 7, 11 * TILE_SIZE, 2), 1.4, 1.0, 0.0),
+            LaserBeam(pygame.Rect(9 * TILE_SIZE + 7, 2 * TILE_SIZE, 2, 7 * TILE_SIZE), 1.0, 1.2, 0.5),
+            LaserBeam(pygame.Rect(5 * TILE_SIZE, 7 * TILE_SIZE + 7, 10 * TILE_SIZE, 2), 1.2, 1.1, 0.9),
+        ]
+
+    def set_objective_for_area(self) -> None:
+        if self.current_area == "area1":
+            if not self.has_key:
+                self.objective = "Locate unit key"
+            elif not self.door_unlocked:
+                self.objective = "Unlock unit door"
+            else:
+                self.objective = "Enter main hallway"
+        elif self.current_area == "hub":
+            if not self.area2_cleared:
+                self.objective = "Explore rooms and reach security checkpoint"
+            elif not self.elevator_choice_made:
+                self.objective = "Reach elevator lobby"
+            else:
+                self.objective = "Route to exit hall"
+        elif self.current_area == "storage":
+            self.objective = "Search storage and return to hallway"
+        elif self.current_area == "medbay":
+            self.objective = "Collect supplies and return to hallway"
+        elif self.current_area == "maintenance":
+            if not self.area2_cleared:
+                self.objective = "Activate maintenance breaker"
+            elif not self.has_knife:
+                self.objective = "Find knife then head to elevator"
+            else:
+                self.objective = "Return to checkpoint gate"
+        elif self.current_area == "area2":
+            if not self.area2_cleared:
+                self.objective = "Lasers active. Use maintenance breaker"
+            else:
+                self.objective = "Proceed to elevator lobby"
+        elif self.current_area == "area3":
+            if not self.has_knife:
+                self.objective = "Need knife from maintenance"
+            elif not self.elevator_choice_made:
+                self.objective = "Use elevator terminal and choose"
+            else:
+                self.objective = "Ride elevator to exit hall"
+        else:
+            if not self.final_exit_unlocked:
+                self.objective = "Clear hostiles in exit hall"
+            else:
+                self.objective = "Reach building exit"
 
     def run(self) -> None:
         while True:
@@ -243,10 +618,13 @@ class Game:
         inv_target = 1.0 if self.state == "inventory" else 0.0
         dil_target = 1.0 if self.state == "dilemma" else 0.0
         banner_target = 1.0 if self.message_timer > 0 else 0.0
+        zone_target = 1.0 if self.zone_card_timer > 0 else 0.0
 
         self.inventory_anim += (inv_target - self.inventory_anim) * min(1.0, dt * 12.0)
         self.dilemma_anim += (dil_target - self.dilemma_anim) * min(1.0, dt * 12.0)
         self.banner_anim += (banner_target - self.banner_anim) * min(1.0, dt * 9.0)
+        self.zone_card_anim += (zone_target - self.zone_card_anim) * min(1.0, dt * 8.0)
+        self.zone_card_timer = max(0.0, self.zone_card_timer - dt)
 
         self.shake_time = max(0.0, self.shake_time - dt)
         if self.shake_time <= 0:
@@ -262,6 +640,46 @@ class Game:
             p.x += p.vx * dt
             p.y += p.vy * dt
             p.vy += 20.0 * dt
+
+    def laser_is_active(self, laser: LaserBeam) -> bool:
+        if self.area2_cleared:
+            return False
+        period = laser.on_time + laser.off_time
+        return ((self.time_alive + laser.phase) % period) < laser.on_time
+
+    def update_area2_hazards(self) -> None:
+        if self.current_area != "area2":
+            return
+        if self.area2_cleared:
+            return
+        if self.hit_cooldown > 0:
+            return
+
+        for laser in self.lasers:
+            if self.laser_is_active(laser) and self.player.colliderect(laser.rect):
+                self.health = max(0, self.health - 12)
+                self.damage_flash = 0.14
+                self.hit_cooldown = 0.45
+                self.message = "Laser burn"
+                self.message_timer = 0.9
+                self.trigger_shake(1.6, 0.12)
+                self.emit_particles(self.player.centerx, self.player.centery, 8, PALETTE["trap_on"])
+                if self.health <= 0:
+                    self.respawn_at_checkpoint()
+                break
+
+    def respawn_at_checkpoint(self) -> None:
+        spawn = self.checkpoints.get(self.current_area, (1, 1))
+        self.player.x = spawn[0] * TILE_SIZE + 3
+        self.player.y = spawn[1] * TILE_SIZE + 2
+        self.player_pos.update(float(self.player.x), float(self.player.y))
+        self.player_vel.update(0, 0)
+        self.health = self.max_health
+        self.flashlight_on = False
+        self.hit_cooldown = 0.6
+        self.message = "You collapsed. Respawned at checkpoint."
+        self.message_timer = 1.8
+        self.damage_flash = 0.0
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
@@ -330,7 +748,9 @@ class Game:
         self.damage_flash = max(0.0, self.damage_flash - dt)
         self.hit_cooldown = max(0.0, self.hit_cooldown - dt)
         self.attack_cooldown = max(0.0, self.attack_cooldown - dt)
+        self.attack_anim = max(0.0, self.attack_anim - dt)
         self.tutorial_timer += dt
+        self.lasers_disabled_timer = max(0.0, self.lasers_disabled_timer - dt)
 
         if self.tutorial_index < len(self.tutorial_lines) and self.tutorial_timer >= 4.0:
             self.message = self.tutorial_lines[self.tutorial_index]
@@ -353,28 +773,58 @@ class Game:
             move = move.normalize()
             self.last_dir = move
 
-        dx = move.x * self.player_speed * dt
-        dy = move.y * self.player_speed * dt
-        self.move_player(dx, dy)
+        accel = self.player_accel
+        if move.length_squared() > 0:
+            self.player_vel += move * accel * dt
+        else:
+            drag = max(0.0, 1.0 - self.player_drag * dt)
+            self.player_vel *= drag
+
+        if self.player_vel.length_squared() > 0:
+            max_speed = max(20.0, self.player_speed)
+            if self.player_vel.length() > max_speed:
+                self.player_vel.scale_to_length(max_speed)
+
+        if self.player_vel.length_squared() < 3.0:
+            self.player_vel.update(0, 0)
+
+        self.walk_cycle += self.player_vel.length() * dt * 0.22
+        self.move_player(self.player_vel.x * dt, self.player_vel.y * dt)
 
         self.collect_pickups()
         self.check_traps()
         self.update_wolves(dt)
         self.update_flashlight(dt)
+        self.update_area2_hazards()
+
+        if self.current_area == "final" and not self.final_exit_unlocked and not any(w.alive for w in self.wolves):
+            self.final_exit_unlocked = True
+            self.objective = "Reach building exit"
+            self.message = "Exit unlocked"
+            self.message_timer = 1.4
 
         tile_x = (self.player.centerx // TILE_SIZE)
         tile_y = (self.player.centery // TILE_SIZE)
 
-        if (tile_x, tile_y) == self.exit_tile and self.door_unlocked:
-            self.message = "Door is open. Press E to leave."
+        nearby_door = self.get_nearby_door(tile_x, tile_y)
+        if nearby_door is not None and self.message_timer <= 0.15:
+            self.message = self.get_door_prompt(nearby_door)
+            self.message_timer = 0.8
+        elif self.current_area == "final" and (tile_x, tile_y) == self.final_exit_tile and self.final_exit_unlocked and self.message_timer <= 0.15:
+            self.message = "Final exit ready. Press E"
             self.message_timer = 0.8
 
     def move_player(self, dx: float, dy: float) -> None:
-        self.player.x += int(dx)
+        self.player_pos.x += dx
+        self.player.x = int(round(self.player_pos.x))
         self.resolve_collisions("x")
-        self.player.y += int(dy)
+        self.player_pos.x = float(self.player.x)
+        self.player_pos.y += dy
+        self.player.y = int(round(self.player_pos.y))
         self.resolve_collisions("y")
+        self.player_pos.y = float(self.player.y)
         self.player.clamp_ip(pygame.Rect(0, 0, self.world_width, self.world_height))
+        self.player_pos.update(float(self.player.x), float(self.player.y))
 
     def resolve_collisions(self, axis: str) -> None:
         for wall in self.walls:
@@ -396,7 +846,6 @@ class Game:
                 self.emit_particles(pickup.rect.centerx, pickup.rect.centery, 8, PALETTE["battery"])
                 if pickup.name == "key":
                     self.has_key = True
-                    self.objective = "Find the locked door and proceed"
                     self.message = "Picked up a key"
                 elif pickup.name == "battery":
                     self.battery = min(100, self.battery + 35)
@@ -407,7 +856,12 @@ class Game:
                 elif pickup.name == "flashlight":
                     self.has_flashlight = True
                     self.message = "Flashlight acquired (Q to toggle)"
+                elif pickup.name == "knife":
+                    self.has_knife = True
+                    self.equipped_item = "knife"
+                    self.message = "Knife acquired"
 
+                self.set_objective_for_area()
                 self.message_timer = 1.5
                 self.pickups.remove(pickup)
 
@@ -424,74 +878,99 @@ class Game:
             self.emit_particles(self.player.centerx, self.player.centery, 14, PALETTE["trap_on"])
 
             if self.health <= 0:
-                self.state = "dead"
-                self.message = "You died. Press Esc to quit."
-                self.message_timer = 999.0
+                self.respawn_at_checkpoint()
 
     def try_interact(self) -> None:
         px = self.player.centerx // TILE_SIZE
         py = self.player.centery // TILE_SIZE
+        is_near = lambda tile: abs(px - tile[0]) + abs(py - tile[1]) <= 1
 
-        if abs(px - self.locked_door_tile[0]) + abs(py - self.locked_door_tile[1]) <= 1:
-            if self.has_key and not self.door_unlocked:
-                self.door_unlocked = True
-                self.objective = "Leave through the main door"
-                self.message = "Door unlocked. Press E again to leave"
-                self.message_timer = 1.6
-                return
-            if self.door_unlocked:
-                self.state = "won"
-                self.message = "You escaped Level 1."
-                self.message_timer = 1000.0
-                return
-            self.message = "Door is locked. Need a key."
-            self.message_timer = 1.2
+        nearby_door = self.get_nearby_door(px, py)
+        if nearby_door is not None:
+            self.interact_door(nearby_door)
             return
 
-        for (tx, ty), kind in self.furniture.items():
-            if abs(px - tx) + abs(py - ty) > 1:
-                continue
+        if self.current_area == "area1":
+            for (tx, ty), kind in self.furniture.items():
+                if abs(px - tx) + abs(py - ty) > 1:
+                    continue
 
-            if kind == "desk":
-                if not self.desk_searched:
-                    self.desk_searched = True
-                    self.has_flashlight = True
-                    self.objective = "Search the cabinet for the key"
-                    self.message = "Found flashlight. Note says key is in cabinet"
-                else:
-                    self.message = "Desk has old papers and a dead monitor"
-                self.message_timer = 1.8
-                return
+                if kind == "desk":
+                    if not self.desk_searched:
+                        self.desk_searched = True
+                        self.has_flashlight = True
+                        self.objective = "Search cabinet for key"
+                        self.message = "Found flashlight. Note hints key in cabinet"
+                    else:
+                        self.message = "Desk has old papers and dead monitor"
+                    self.message_timer = 1.8
+                    return
 
-            if kind == "cabinet":
-                if not self.desk_searched:
-                    self.message = "Cabinet jammed. Maybe check the desk first"
+                if kind == "cabinet":
+                    if not self.desk_searched:
+                        self.message = "Cabinet jammed. Check desk first"
+                        self.message_timer = 1.5
+                        return
+                    if not self.cabinet_searched:
+                        self.cabinet_searched = True
+                        self.has_key = True
+                        self.bandages += 1
+                        self.set_objective_for_area()
+                        self.message = "You found the key and a bandage"
+                    else:
+                        self.message = "Cabinet is empty"
                     self.message_timer = 1.6
                     return
-                if not self.cabinet_searched:
-                    self.cabinet_searched = True
-                    self.has_key = True
-                    self.bandages += 1
-                    self.objective = "Return to the main door"
-                    self.message = "You found the key and a bandage"
+
+                if kind == "bed":
+                    if not self.bed_searched:
+                        self.bed_searched = True
+                        self.bandages += 1
+                        self.message = "Found a bandage under the bed"
+                    else:
+                        self.message = "Nothing else under the bed"
+                    self.message_timer = 1.4
+                    return
+
+                if kind == "stool":
+                    self.message = "A small stool. Not useful right now"
+                    self.message_timer = 1.0
+                    return
+
+        elif self.current_area == "maintenance":
+            if self.breaker_tile != (0, 0) and is_near(self.breaker_tile):
+                if not self.area2_cleared:
+                    self.area2_cleared = True
+                    self.set_objective_for_area()
+                    self.message = "Main breaker engaged. Security lasers offline"
                 else:
-                    self.message = "Cabinet is empty"
-                self.message_timer = 1.8
+                    self.message = "Breaker already powered"
+                self.message_timer = 1.2
                 return
 
-            if kind == "bed":
-                if not self.bed_searched:
-                    self.bed_searched = True
-                    self.bandages += 1
-                    self.message = "Found a bandage under the bed"
-                else:
-                    self.message = "Nothing else under the bed"
+        elif self.current_area == "area3":
+            if self.elevator_terminal_tile != (0, 0) and is_near(self.elevator_terminal_tile):
+                if not self.has_knife:
+                    self.message = "Need knife before terminal authorization"
+                    self.message_timer = 1.2
+                    return
+                if not self.elevator_choice_made:
+                    self.state = "dilemma"
+                    return
+
+                self.message = "Terminal authorized. Elevator unlocked"
                 self.message_timer = 1.5
                 return
 
-            if kind == "stool":
-                self.message = "A small stool. Not useful right now"
-                self.message_timer = 1.2
+        elif self.current_area == "final":
+            if self.final_exit_tile != (0, 0) and is_near(self.final_exit_tile):
+                if self.final_exit_unlocked:
+                    self.state = "won"
+                    self.message = "You escaped Level 1."
+                    self.message_timer = 1000.0
+                else:
+                    self.message = "Defeat all enemies first"
+                    self.message_timer = 1.1
                 return
 
     def toggle_flashlight(self) -> None:
@@ -549,13 +1028,22 @@ class Game:
                     self.trigger_shake(2.0, 0.15)
                     self.emit_particles(self.player.centerx, self.player.centery, 10, PALETTE["health_low"])
                     if self.health <= 0:
-                        self.state = "dead"
-                        self.message = "You died. Press Esc to quit."
-                        self.message_timer = 999.0
+                        self.respawn_at_checkpoint()
 
     def attack(self) -> None:
+        if not self.has_knife:
+            self.message = "Need a weapon first"
+            self.message_timer = 0.8
+            return
+
         if self.attack_cooldown > 0:
             return
+
+        if self.last_dir.length_squared() > 0:
+            self.attack_dir = self.last_dir.normalize()
+        else:
+            self.attack_dir = pygame.Vector2(1, 0)
+        self.attack_anim = self.attack_duration
 
         reach = 20
         attack_rect = self.player.copy()
@@ -573,6 +1061,10 @@ class Game:
                 self.message_timer = 0.9
                 self.trigger_shake(1.8, 0.12)
                 self.emit_particles(wolf.rect.centerx, wolf.rect.centery, 12, PALETTE["wolf_alert"])
+
+        slash_x = self.player.centerx + self.attack_dir.x * 10
+        slash_y = self.player.centery + self.attack_dir.y * 10
+        self.emit_particles(slash_x, slash_y, 6, (232, 232, 224))
 
         self.attack_cooldown = 0.45 * self.attack_speed_mult
 
@@ -635,17 +1127,26 @@ class Game:
         self.message_timer = 0.9
 
     def choose_dilemma(self, choice: str) -> None:
+        if self.elevator_choice_made:
+            self.state = "explore"
+            return
+
         self.dilemma_triggered = True
+        self.elevator_choice_made = True
         self.state = "explore"
 
         if choice == "leg":
             self.player_speed = self.base_player_speed * 0.65
+            self.choice_result = "leg"
             self.message = "Leg sacrificed: move speed reduced"
             self.message_timer = 2.2
         else:
             self.attack_speed_mult = 1.7
+            self.choice_result = "arm"
             self.message = "Arm sacrificed: attack speed reduced"
             self.message_timer = 2.2
+
+        self.set_objective_for_area()
 
     def draw(self) -> None:
         self.draw_atmosphere_back()
@@ -692,6 +1193,8 @@ class Game:
 
         self.draw_world_labels_screen(view_rect)
         self.draw_shell_ui(view_rect)
+        self.draw_zone_card_screen(view_rect)
+        self.draw_player_popup_screen(view_rect)
         pygame.display.flip()
 
     def draw_shell_ui(self, view_rect: pygame.Rect) -> None:
@@ -723,25 +1226,126 @@ class Game:
         right_w = top_panel.width - (health_panel.width + 24)
         right_panel = pygame.Rect(health_panel.right + 8, top_panel.y + 8, right_w, top_panel_h - 16)
         self.draw_screen_panel(right_panel, (22, 30, 42), (70, 90, 110))
-        self.blit_text_centered_shadow_on(self.screen, "OBJECTIVE", pygame.Rect(right_panel.x + 6, right_panel.y + 2, right_panel.width - 12, 10))
+
+        zone_code, zone_name, _ = self.get_area_meta()
+        self.blit_text_shadow_on(self.screen, f"{zone_code}  {zone_name}", right_panel.x + 8, right_panel.y + 2, right_panel.width - 16)
         self.blit_multiline_left_shadow_on(
             self.screen,
             self.objective,
-            pygame.Rect(right_panel.x + 10, right_panel.y + 14, right_panel.width - 20, 14),
+            pygame.Rect(right_panel.x + 8, right_panel.y + 14, right_panel.width - 16, 12),
         )
-
-        if self.message_timer > 0:
-            self.blit_multiline_left_shadow_on(
-                self.screen,
-                self.message,
-                pygame.Rect(right_panel.x + 10, right_panel.y + 30, right_panel.width - 20, 14),
-            )
+        self.draw_building_flow_strip(pygame.Rect(right_panel.x + 8, right_panel.y + 29, right_panel.width - 16, 15))
 
         # Bottom bar for quick item slots around gameplay.
         slot_panel = pygame.Rect(view_rect.centerx - 162, view_rect.bottom + 16, 324, 64)
         self.draw_screen_panel(slot_panel, (18, 24, 33), (62, 78, 96))
         self.blit_text_centered_shadow_on(self.screen, "ITEMS", pygame.Rect(slot_panel.x + 6, slot_panel.y + 4, slot_panel.width - 12, 12))
         self.draw_quick_slots_screen(slot_panel)
+
+    def draw_building_flow_strip(self, rect: pygame.Rect) -> None:
+        self.draw_screen_panel(rect, (16, 23, 31), (72, 90, 110))
+
+        try:
+            current_idx = AREA_FLOW_ORDER.index(self.current_area)
+        except ValueError:
+            current_idx = 0
+
+        step_count = len(AREA_FLOW_ORDER)
+        gap = 3
+        inner_x = rect.x + 3
+        inner_y = rect.y + 2
+        inner_h = rect.height - 4
+        step_w = max(20, (rect.width - 6 - gap * (step_count - 1)) // step_count)
+
+        for idx, area_id in enumerate(AREA_FLOW_ORDER):
+            sx = inner_x + idx * (step_w + gap)
+            step_rect = pygame.Rect(sx, inner_y, step_w, inner_h)
+            visited = area_id in self.visited_areas
+
+            if idx == current_idx:
+                fill = (52, 74, 102)
+                border = (122, 172, 240)
+                text_col = (236, 243, 252)
+            elif visited:
+                fill = (44, 76, 66)
+                border = (98, 160, 134)
+                text_col = (214, 241, 230)
+            else:
+                fill = (32, 41, 54)
+                border = (74, 90, 112)
+                text_col = (168, 182, 198)
+
+            self.screen.fill(fill, step_rect)
+            pygame.draw.rect(self.screen, border, step_rect, 1)
+
+            _, _, short_name = self.get_area_meta(area_id)
+            short_w, short_h = self.ui_small_font.size(short_name)
+            tx = step_rect.x + (step_rect.width - short_w) // 2
+            ty = step_rect.y + (step_rect.height - short_h) // 2
+            self.blit_pixel_text_on(self.screen, short_name, tx, ty, self.ui_small_font, text_col)
+
+    def draw_zone_card_screen(self, view_rect: pygame.Rect) -> None:
+        if self.zone_card_timer <= 0 or not self.zone_card_title:
+            return
+        if self.state in ("inventory", "dilemma", "won", "dead"):
+            return
+
+        card_w = min(280, view_rect.width - 14)
+        card_h = 30
+        offset_y = int((1.0 - self.zone_card_anim) * -12)
+        card_x = view_rect.x + 7
+        card_y = view_rect.y + 7 + offset_y
+
+        card = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+        alpha = int(220 * self.zone_card_anim)
+        card.fill((10, 16, 24, alpha))
+        self.screen.blit(card, (card_x, card_y))
+        pygame.draw.rect(self.screen, (102, 124, 150), pygame.Rect(card_x, card_y, card_w, card_h), 1)
+
+        self.blit_pixel_text_on(self.screen, self.zone_card_title, card_x + 8, card_y + 4, self.ui_small_font, (192, 208, 226))
+        self.blit_pixel_text_on(self.screen, self.zone_card_subtitle, card_x + 8, card_y + 15, self.ui_font)
+
+    def draw_player_popup_screen(self, view_rect: pygame.Rect) -> None:
+        if self.message_timer <= 0 or not self.message:
+            return
+        if self.state in ("won", "dead"):
+            return
+
+        max_width = min(280, view_rect.width - 16)
+        line_width = max_width - 12
+        lines = self.wrap_text(self.message, self.ui_font, line_width)
+        max_lines = 3
+        if len(lines) > max_lines:
+            clipped = lines[: max_lines - 1]
+            clipped.append(self.fit_text(" ".join(lines[max_lines - 1 :]), self.ui_font, line_width))
+            lines = clipped
+
+        line_h = self.ui_font.get_height()
+        bubble_w = max(self.ui_font.size(line)[0] for line in lines) + 12
+        bubble_h = line_h * len(lines) + 7
+
+        player_screen_x = view_rect.x + self.player.centerx * SCALE
+        player_screen_y = view_rect.y + self.player.y * SCALE
+        rise = int((1.0 - self.banner_anim) * 10)
+
+        bubble_x = player_screen_x - bubble_w // 2
+        bubble_x = max(view_rect.x + 4, min(bubble_x, view_rect.right - bubble_w - 4))
+        bubble_y = player_screen_y - bubble_h - 24 - rise
+        bubble_y = max(view_rect.y + 4, bubble_y)
+
+        bubble_rect = pygame.Rect(bubble_x, bubble_y, bubble_w, bubble_h)
+        self.screen.fill((8, 12, 18), bubble_rect)
+        pygame.draw.rect(self.screen, (86, 104, 126), bubble_rect, 1)
+
+        tip_x = max(bubble_rect.x + 6, min(player_screen_x, bubble_rect.right - 6))
+        tip = [(tip_x - 4, bubble_rect.bottom), (tip_x + 4, bubble_rect.bottom), (tip_x, bubble_rect.bottom + 5)]
+        pygame.draw.polygon(self.screen, (8, 12, 18), tip)
+        pygame.draw.polygon(self.screen, (86, 104, 126), tip, 1)
+
+        text_y = bubble_rect.y + 3
+        for line in lines:
+            self.blit_text_shadow_on(self.screen, line, bubble_rect.x + 6, text_y, line_width)
+            text_y += line_h
 
     def draw_quick_slots_screen(self, slot_panel: pygame.Rect) -> None:
         total_width = 5 * 56
@@ -755,8 +1359,9 @@ class Game:
             if item in self.sprite_cache and self.sprite_cache[item] is not None:
                 icon = pygame.transform.scale(self.sprite_cache[item], (18, 18))
                 self.screen.blit(icon, (rect.x + 4, rect.y + 8))
-            label = self.small_font.render(str(idx + 1), True, (190, 205, 220))
-            self.screen.blit(label, (rect.right - 7, rect.y + 2))
+            num_text = str(idx + 1)
+            num_w = self.ui_small_font.size(num_text)[0]
+            self.blit_pixel_text_on(self.screen, num_text, rect.right - num_w - 3, rect.y + 2, self.ui_small_font, (198, 213, 228))
 
     def collect_world_labels(self) -> list[tuple[str, int, int]]:
         labels: list[tuple[str, int, int]] = []
@@ -765,12 +1370,34 @@ class Game:
 
         player_center = pygame.Vector2(self.player.centerx, self.player.centery)
 
-        door_center = pygame.Vector2(
-            self.locked_door_tile[0] * TILE_SIZE + TILE_SIZE // 2,
-            self.locked_door_tile[1] * TILE_SIZE + TILE_SIZE // 2,
-        )
-        if player_center.distance_to(door_center) < 74:
-            labels.append(("Main Door", int(door_center.x), int(door_center.y - 16)))
+        for door in self.current_doors:
+            dx, dy = door["tile"]
+            center = pygame.Vector2(dx * TILE_SIZE + TILE_SIZE // 2, dy * TILE_SIZE + TILE_SIZE // 2)
+            if player_center.distance_to(center) < 96:
+                door_id = str(door.get("id", "D-??"))
+                target_area = str(door.get("to", ""))
+                target_code, _, target_short = self.get_area_meta(target_area)
+                state = "LOCKED" if self.is_door_locked(door) else "OPEN"
+                labels.append((f"{door_id} -> {target_code} {target_short} {state}", int(center.x), int(center.y - 16)))
+
+        if self.current_area == "maintenance" and self.breaker_tile != (0, 0):
+            center = pygame.Vector2(self.breaker_tile[0] * TILE_SIZE + TILE_SIZE // 2, self.breaker_tile[1] * TILE_SIZE + TILE_SIZE // 2)
+            if player_center.distance_to(center) < 72:
+                text = "Main Breaker ON" if self.area2_cleared else "Main Breaker"
+                labels.append((text, int(center.x), int(center.y - 16)))
+
+        if self.current_area == "area3" and self.elevator_terminal_tile != (0, 0):
+            center = pygame.Vector2(
+                self.elevator_terminal_tile[0] * TILE_SIZE + TILE_SIZE // 2,
+                self.elevator_terminal_tile[1] * TILE_SIZE + TILE_SIZE // 2,
+            )
+            if player_center.distance_to(center) < 72:
+                labels.append(("Elevator Terminal", int(center.x), int(center.y - 16)))
+
+        if self.current_area == "final" and self.final_exit_tile != (0, 0):
+            center = pygame.Vector2(self.final_exit_tile[0] * TILE_SIZE + TILE_SIZE // 2, self.final_exit_tile[1] * TILE_SIZE + TILE_SIZE // 2)
+            if player_center.distance_to(center) < 82:
+                labels.append(("Level Exit", int(center.x), int(center.y - 16)))
 
         furniture_labels = {
             "desk": "Desk",
@@ -788,6 +1415,7 @@ class Game:
             "battery": "Battery",
             "bandage": "Bandage",
             "flashlight": "Flashlight",
+            "knife": "Knife",
         }
         for pickup in self.pickups:
             center = pygame.Vector2(pickup.rect.centerx, pickup.rect.centery)
@@ -811,14 +1439,13 @@ class Game:
             self.draw_label_on_screen(text, sx, sy)
 
     def draw_label_on_screen(self, text: str, center_x: int, y: int) -> None:
-        label = self.ui_small_font.render(text, True, (228, 236, 245))
-        w = label.get_width() + 10
-        h = label.get_height() + 6
+        w = self.ui_small_font.size(text)[0] + 12
+        h = self.ui_small_font.get_height() + 7
         x = center_x - w // 2
         bg = pygame.Rect(x, y, w, h)
         self.screen.fill((8, 12, 18), bg)
         pygame.draw.rect(self.screen, (78, 96, 120), bg, 1)
-        self.screen.blit(label, (x + 5, y + 3))
+        self.blit_pixel_text_on(self.screen, text, x + 6, y + 3, self.ui_small_font)
 
     def draw_screen_panel(self, rect: pygame.Rect, fill: tuple[int, int, int], border: tuple[int, int, int]) -> None:
         self.screen.fill(fill, rect)
@@ -835,16 +1462,15 @@ class Game:
         max_width: int | None = None,
     ) -> None:
         draw_text = self.fit_text(text, self.ui_font, max_width) if max_width is not None else text
-        shadow = self.ui_font.render(draw_text, True, (8, 10, 14))
-        surface.blit(shadow, (x + 1, y + 1))
-        label = self.ui_font.render(draw_text, True, PALETTE["text"])
-        surface.blit(label, (x, y))
+        self.blit_pixel_text_on(surface, draw_text, x, y, self.ui_font)
 
     def blit_text_centered_shadow_on(self, surface: pygame.Surface, text: str, rect: pygame.Rect) -> None:
         draw_text = self.fit_text(text, self.ui_font, rect.width)
-        label = self.ui_font.render(draw_text, True, PALETTE["text"])
-        x = rect.x + (rect.width - label.get_width()) // 2
-        y = rect.y + (rect.height - label.get_height()) // 2
+        if not draw_text:
+            return
+        text_w, text_h = self.ui_font.size(draw_text)
+        x = rect.x + (rect.width - text_w) // 2
+        y = rect.y + (rect.height - text_h) // 2
         self.blit_text_shadow_on(surface, draw_text, x, y)
 
     def blit_multiline_left_shadow_on(self, surface: pygame.Surface, text: str, rect: pygame.Rect) -> None:
@@ -864,7 +1490,7 @@ class Game:
             y += line_height
 
     def draw_world(self) -> None:
-        for y, row in enumerate(LEVEL_MAP):
+        for y, row in enumerate(self.current_map):
             for x, cell in enumerate(row):
                 tile_rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                 color = PALETTE["floor"]
@@ -881,19 +1507,35 @@ class Game:
                     pygame.draw.line(self.canvas, (54, 68, 84), (tile_rect.x, tile_rect.y), (tile_rect.right - 1, tile_rect.y))
                     pygame.draw.line(self.canvas, (20, 26, 34), (tile_rect.x, tile_rect.bottom - 1), (tile_rect.right - 1, tile_rect.bottom - 1))
 
-        door_rect = pygame.Rect(self.locked_door_tile[0] * TILE_SIZE, self.locked_door_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        self.canvas.fill(PALETTE["door_open"], door_rect)
-        pygame.draw.rect(self.canvas, (142, 162, 179), door_rect, 1)
-        if not self.door_unlocked:
-            self.canvas.fill(PALETTE["door"], door_rect)
-            pygame.draw.rect(self.canvas, (236, 188, 119), door_rect, 1)
-            lock_blink = int((math.sin(self.time_alive * 3.2) + 1.0) * 0.5 * 55)
-            self.canvas.fill((199 + min(lock_blink, 56), 70, 70), pygame.Rect(door_rect.x + 6, door_rect.y + 6, 4, 4))
+        for door in self.current_doors:
+            dx, dy = door["tile"]
+            door_rect = pygame.Rect(dx * TILE_SIZE, dy * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            locked = self.is_door_locked(door)
+            fill = (92, 70, 60) if locked else (72, 94, 116)
+            border = (214, 126, 96) if locked else (138, 178, 228)
+            self.canvas.fill(fill, door_rect)
+            pygame.draw.rect(self.canvas, border, door_rect, 1)
+            pulse = int((math.sin(self.time_alive * 2.7) + 1.0) * 0.5 * 26)
+            light_col = (208 + pulse // 2, 74, 74) if locked else (98, 202 + pulse // 3, 158)
+            self.canvas.fill(light_col, pygame.Rect(door_rect.x + 6, door_rect.y + 6, 3, 3))
 
-        exit_rect = pygame.Rect(self.exit_tile[0] * TILE_SIZE, self.exit_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        self.canvas.fill(PALETTE["exit"], exit_rect)
-        pulse = int((math.sin(self.time_alive * 2.6) + 1.0) * 0.5 * 40)
-        pygame.draw.rect(self.canvas, (120 + pulse, 170 + pulse // 2, 255), exit_rect, 1)
+        if self.current_area == "final" and self.final_exit_tile != (0, 0):
+            final_rect = pygame.Rect(self.final_exit_tile[0] * TILE_SIZE, self.final_exit_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            col = PALETTE["exit"] if self.final_exit_unlocked else (52, 64, 86)
+            self.canvas.fill(col, final_rect)
+            pulse = int((math.sin(self.time_alive * 2.1) + 1.0) * 0.5 * 36)
+            border_col = (120 + pulse, 170 + pulse // 2, 255) if self.final_exit_unlocked else (92, 104, 122)
+            pygame.draw.rect(self.canvas, border_col, final_rect, 1)
+
+        if self.current_area == "area2":
+            for laser in self.lasers:
+                active = self.laser_is_active(laser)
+                col = (220, 62, 62) if active else (90, 50, 50)
+                if self.area2_cleared:
+                    col = (50, 86, 104)
+                self.canvas.fill(col, laser.rect)
+                if active:
+                    self.canvas.fill((255, 170, 170), pygame.Rect(laser.rect.x, laser.rect.y, max(1, laser.rect.width), 1))
 
         for (tx, ty), kind in self.furniture.items():
             item_rect = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
@@ -909,6 +1551,18 @@ class Game:
             else:
                 self.canvas.fill((95, 78, 66), item_rect)
 
+        if self.current_area == "maintenance" and self.breaker_tile != (0, 0):
+            br = pygame.Rect(self.breaker_tile[0] * TILE_SIZE, self.breaker_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            self.canvas.fill((70, 84, 98), br)
+            light_col = (80, 210, 140) if self.area2_cleared else (220, 170, 70)
+            self.canvas.fill(light_col, pygame.Rect(br.x + 5, br.y + 4, 6, 6))
+
+        if self.current_area == "area3" and self.elevator_terminal_tile != (0, 0):
+            tr = pygame.Rect(self.elevator_terminal_tile[0] * TILE_SIZE, self.elevator_terminal_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            self.canvas.fill((68, 74, 88), tr)
+            light_col = (80, 210, 140) if self.elevator_choice_made else (210, 92, 92)
+            self.canvas.fill(light_col, pygame.Rect(tr.x + 5, tr.y + 4, 6, 6))
+
     def draw_entities(self) -> None:
         for pickup in self.pickups:
             color_name = {
@@ -916,6 +1570,7 @@ class Game:
                 "battery": "battery",
                 "bandage": "bandage",
                 "flashlight": "flashlight",
+                "knife": "door",
             }.get(pickup.name, "bandage")
             self.draw_pickup_icon(pickup.rect, pickup.name, PALETTE[color_name], self.sprite_cache.get(pickup.name))
 
@@ -997,8 +1652,8 @@ class Game:
         pygame.draw.rect(self.canvas, (122, 142, 162), pygame.Rect(px, py, 236, 138), 1)
         pygame.draw.rect(self.canvas, (65, 80, 98), pygame.Rect(px + 2, py + 2, 232, 134), 1)
 
-        self.blit_text_centered_shadow("ITEMS", pygame.Rect(px + 8, py + 6, 220, 10))
-        self.blit_text_centered_shadow("TAB/ESC close", pygame.Rect(px + 8, py + 18, 220, 10))
+        self.blit_pixel_text_centered("ITEMS", pygame.Rect(px + 8, py + 4, 220, 12), self.inventory_title_font)
+        self.blit_pixel_text_centered("TAB/ESC CLOSE", pygame.Rect(px + 8, py + 17, 220, 11), self.inventory_font)
 
         slots = self.get_inventory_slots()
         for idx, item in enumerate(slots):
@@ -1014,14 +1669,13 @@ class Game:
                 if item in self.sprite_cache and self.sprite_cache[item] is not None:
                     sprite = pygame.transform.scale(self.sprite_cache[item], (14, 14))
                     self.canvas.blit(sprite, (sx + (slot_rect.width - 14) // 2, sy + 4))
-                self.blit_small_text_centered(item, pygame.Rect(sx + 2, sy + 20, slot_rect.width - 4, 8))
+                self.blit_pixel_text_centered(item.upper(), pygame.Rect(sx + 2, sy + 20, slot_rect.width - 4, 9), self.inventory_small_font)
                 if item == "bandage":
-                    txt = self.small_font.render(str(self.bandages), True, PALETTE["text"])
-                    self.canvas.blit(txt, (sx + 36, sy + 2))
+                    self.blit_pixel_text(str(self.bandages), sx + 34, sy + 1, self.inventory_small_font)
 
         footer = pygame.Rect(px + 10, py + 122, 216, 12)
         self.draw_panel(footer, (26, 34, 45), (95, 112, 132))
-        self.blit_text_centered_shadow("ENTER USE  |  F EQUIP", pygame.Rect(footer.x + 2, footer.y + 1, footer.width - 4, footer.height - 2))
+        self.blit_pixel_text_centered("ENTER USE  |  F EQUIP", pygame.Rect(footer.x + 2, footer.y + 1, footer.width - 4, footer.height - 2), self.inventory_font)
 
     def draw_dilemma_overlay(self) -> None:
         panel = pygame.Surface((280, 120), pygame.SRCALPHA)
@@ -1046,12 +1700,47 @@ class Game:
         y = (INTERNAL_HEIGHT - 44) // 2
         self.canvas.blit(box, (x, y))
         pygame.draw.rect(self.canvas, (133, 156, 178), pygame.Rect(x, y, 180, 44), 1)
-        label = self.big_font.render(text, True, PALETTE["text"])
-        self.canvas.blit(label, (x + (180 - label.get_width()) // 2, y + 14))
+        text_w, text_h = self.big_font.size(text)
+        self.blit_pixel_text_on(self.canvas, text, x + (180 - text_w) // 2, y + (44 - text_h) // 2, self.big_font)
 
     def blit_text(self, text: str, x: int, y: int) -> None:
-        label = self.font.render(text, True, PALETTE["text"])
-        self.canvas.blit(label, (x, y))
+        self.blit_pixel_text_on(self.canvas, text, x, y, self.font)
+
+    def blit_pixel_text_on(
+        self,
+        surface: pygame.Surface,
+        text: str,
+        x: int,
+        y: int,
+        font: pygame.font.Font,
+        color: tuple[int, int, int] = (236, 243, 250),
+    ) -> None:
+        if not text:
+            return
+        outline = font.render(text, False, (6, 9, 14))
+        label = font.render(text, False, color)
+        for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)):
+            surface.blit(outline, (x + ox, y + oy))
+        surface.blit(label, (x, y))
+
+    def blit_pixel_text(
+        self,
+        text: str,
+        x: int,
+        y: int,
+        font: pygame.font.Font,
+        color: tuple[int, int, int] = (236, 243, 250),
+    ) -> None:
+        self.blit_pixel_text_on(self.canvas, text, x, y, font, color)
+
+    def blit_pixel_text_centered(self, text: str, rect: pygame.Rect, font: pygame.font.Font) -> None:
+        draw_text = self.fit_text(text, font, rect.width)
+        if not draw_text:
+            return
+        label = font.render(draw_text, False, (236, 243, 250))
+        x = rect.x + (rect.width - label.get_width()) // 2
+        y = rect.y + (rect.height - label.get_height()) // 2
+        self.blit_pixel_text(draw_text, x, y, font)
 
     def fit_text(self, text: str, font: pygame.font.Font, max_width: int) -> str:
         if max_width <= 0:
@@ -1087,26 +1776,25 @@ class Game:
 
     def blit_text_shadow(self, text: str, x: int, y: int, max_width: int | None = None) -> None:
         draw_text = self.fit_text(text, self.font, max_width) if max_width is not None else text
-        shadow = self.font.render(draw_text, True, (8, 10, 14))
-        self.canvas.blit(shadow, (x + 1, y + 1))
-        label = self.font.render(draw_text, True, PALETTE["text"])
-        self.canvas.blit(label, (x, y))
+        self.blit_pixel_text_on(self.canvas, draw_text, x, y, self.font)
 
     def blit_text_centered_shadow(self, text: str, rect: pygame.Rect) -> None:
         draw_text = self.fit_text(text, self.font, rect.width)
-        label = self.font.render(draw_text, True, PALETTE["text"])
-        x = rect.x + (rect.width - label.get_width()) // 2
-        y = rect.y + (rect.height - label.get_height()) // 2
+        if not draw_text:
+            return
+        text_w, text_h = self.font.size(draw_text)
+        x = rect.x + (rect.width - text_w) // 2
+        y = rect.y + (rect.height - text_h) // 2
         self.blit_text_shadow(draw_text, x, y)
 
     def blit_small_text_centered(self, text: str, rect: pygame.Rect) -> None:
         draw_text = self.fit_text(text, self.small_font, rect.width)
-        shadow = self.small_font.render(draw_text, True, (8, 10, 14))
-        label = self.small_font.render(draw_text, True, PALETTE["text"])
-        x = rect.x + (rect.width - label.get_width()) // 2
-        y = rect.y + (rect.height - label.get_height()) // 2
-        self.canvas.blit(shadow, (x + 1, y + 1))
-        self.canvas.blit(label, (x, y))
+        if not draw_text:
+            return
+        text_w, text_h = self.small_font.size(draw_text)
+        x = rect.x + (rect.width - text_w) // 2
+        y = rect.y + (rect.height - text_h) // 2
+        self.blit_pixel_text_on(self.canvas, draw_text, x, y, self.small_font)
 
     def blit_multiline_left_shadow(self, text: str, rect: pygame.Rect) -> None:
         line_height = self.font.get_height()
@@ -1142,8 +1830,9 @@ class Game:
             if item in self.sprite_cache and self.sprite_cache[item] is not None:
                 icon = pygame.transform.scale(self.sprite_cache[item], (10, 10))
                 self.canvas.blit(icon, (rect.x + 2, rect.y + 4))
-            label = self.small_font.render(str(idx + 1), True, (190, 205, 220))
-            self.canvas.blit(label, (rect.right - 6, rect.y + 1))
+            num_text = str(idx + 1)
+            num_w = self.small_font.size(num_text)[0]
+            self.blit_pixel_text_on(self.canvas, num_text, rect.right - num_w - 2, rect.y + 1, self.small_font, (198, 213, 228))
 
     def draw_pickup_icon(
         self,
@@ -1193,19 +1882,55 @@ class Game:
 
     def draw_player_sprite(self) -> None:
         base = self.player
-        sprite = self.sprite_cache.get("player")
-        if sprite is not None:
-            draw_x = base.centerx - sprite.get_width() // 2
-            draw_y = base.bottom - sprite.get_height()
-            self.canvas.blit(sprite, (draw_x, draw_y))
-            if self.damage_flash > 0:
-                self.canvas.fill((180, 60, 60), pygame.Rect(draw_x, draw_y, sprite.get_width(), sprite.get_height()), special_flags=pygame.BLEND_ADD)
-            return
-
         player_color = PALETTE["player_hurt"] if self.damage_flash > 0 else PALETTE["player"]
+        moving = self.player_vel.length() > 8.0
+        stride = int(math.sin(self.walk_cycle * 7.4) * 2) if moving else 0
+        bob = int(abs(math.sin(self.walk_cycle * 7.4)) * 1.4) if moving else 0
+
+        facing = self.last_dir if self.last_dir.length_squared() > 0 else pygame.Vector2(1, 0)
+        facing = facing.normalize()
+
+        head_y = base.y + 1 - bob
+        torso_y = base.y + 5 - bob
+        leg_y = base.y + 9
+
+        # Grounded shadow keeps movement readable.
         self.canvas.fill((10, 14, 20), pygame.Rect(base.x + 1, base.y + 11, 8, 2))
-        self.canvas.fill((141, 96, 75), pygame.Rect(base.x + 2, base.y + 1, 6, 4))
-        self.canvas.fill(player_color, pygame.Rect(base.x + 1, base.y + 5, 8, 6))
+
+        # Legs animate with stride to show walking direction.
+        self.canvas.fill((42, 52, 68), pygame.Rect(base.x + 2 + stride, leg_y, 2, 3))
+        self.canvas.fill((42, 52, 68), pygame.Rect(base.x + 6 - stride, leg_y, 2, 3))
+
+        self.canvas.fill(player_color, pygame.Rect(base.x + 1, torso_y, 8, 5))
+        self.canvas.fill((141, 96, 75), pygame.Rect(base.x + 2, head_y, 6, 4))
+
+        arm_y = torso_y + 1
+        self.canvas.fill((126, 84, 66), pygame.Rect(base.x + 1, arm_y, 1, 3))
+        self.canvas.fill((126, 84, 66), pygame.Rect(base.x + 8, arm_y, 1, 3))
+
+        eye_col = (236, 236, 232)
+        if abs(facing.x) > abs(facing.y):
+            eye_x = base.x + (6 if facing.x > 0 else 3)
+            self.canvas.fill(eye_col, pygame.Rect(eye_x, head_y + 2, 1, 1))
+            self.canvas.fill(eye_col, pygame.Rect(eye_x, head_y + 3, 1, 1))
+        elif facing.y < 0:
+            self.canvas.fill(eye_col, pygame.Rect(base.x + 3, head_y + 1, 1, 1))
+            self.canvas.fill(eye_col, pygame.Rect(base.x + 6, head_y + 1, 1, 1))
+        else:
+            self.canvas.fill(eye_col, pygame.Rect(base.x + 3, head_y + 3, 1, 1))
+            self.canvas.fill(eye_col, pygame.Rect(base.x + 6, head_y + 3, 1, 1))
+
+        if self.attack_anim > 0:
+            t = 1.0 - (self.attack_anim / max(0.001, self.attack_duration))
+            swing = math.sin(t * math.pi)
+            start = pygame.Vector2(base.centerx, torso_y + 2)
+            swing_dir = self.attack_dir if self.attack_dir.length_squared() > 0 else facing
+            tip = start + swing_dir * (5.0 + swing * 5.0)
+            knife_tip = tip + swing_dir * 2.2
+            pygame.draw.line(self.canvas, (220, 224, 232), (int(start.x), int(start.y)), (int(tip.x), int(tip.y)))
+            pygame.draw.line(self.canvas, (245, 245, 238), (int(tip.x), int(tip.y)), (int(knife_tip.x), int(knife_tip.y)))
+            spark = knife_tip + pygame.Vector2(-swing_dir.y, swing_dir.x) * 1.2
+            self.canvas.fill((250, 248, 212), pygame.Rect(int(spark.x), int(spark.y), 1, 1))
 
     def draw_particles(self) -> None:
         for p in self.particles:
