@@ -113,15 +113,15 @@ AREA_MAPS = {
     ],
     "area2": [
         "####################",
-        "#P.................#",
-        "#..................#",
-        "#..................#",
-        "#..................#",
-        "#..................#",
-        "#..................#",
-        "#..................#",
-        "#..............G...#",
-        "#..................#",
+        "########....########",
+        "########.....#######",
+        "########....########",
+        "#######......#######",
+        "########....########",
+        "########.....#######",
+        "########....########",
+        "########..P.########",
+        "########....########",
         "####################",
     ],
     "area3": [
@@ -178,34 +178,34 @@ AREA_DOORS: dict[str, list[dict[str, object]]] = {
     ],
     "hub": [
         {"id": "D-01R", "tile": (10, 9), "to": "area1", "spawn": (10, 2), "label": "B1-01 RESIDENTIAL UNIT", "requirement": "none"},
-        {"id": "D-02", "tile": (3, 1), "to": "area2", "spawn": (2, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
-        {"id": "D-03", "tile": (16, 1), "to": "storage", "spawn": (2, 2), "label": "B1-03 STORAGE ROOM", "requirement": "none"},
-        {"id": "D-04", "tile": (3, 9), "to": "medbay", "spawn": (2, 2), "label": "B1-04 MED BAY", "requirement": "none"},
+        {"id": "D-02", "tile": (3, 1), "to": "area2", "spawn": (10, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
         {"id": "D-05", "tile": (16, 9), "to": "maintenance", "spawn": (2, 2), "label": "B1-05 MAINTENANCE", "requirement": "none"},
     ],
     "storage": [
-        {"id": "D-03R", "tile": (10, 9), "to": "hub", "spawn": (16, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+        {"id": "D-03R", "tile": (10, 9), "to": "area2", "spawn": (11, 2), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
     ],
     "medbay": [
-        {"id": "D-04R", "tile": (10, 9), "to": "hub", "spawn": (3, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+        {"id": "D-04R", "tile": (10, 9), "to": "area2", "spawn": (11, 6), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
     ],
     "maintenance": [
         {"id": "D-05R", "tile": (10, 1), "to": "hub", "spawn": (16, 8), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
     ],
     "area2": [
-        {"id": "D-02R", "tile": (2, 9), "to": "hub", "spawn": (4, 2), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+        {"id": "D-02R", "tile": (7, 4), "to": "hub", "spawn": (4, 2), "label": "B1-02 MAIN HALLWAY", "requirement": "none"},
+        {"id": "D-03", "tile": (12, 2), "to": "storage", "spawn": (2, 2), "label": "B1-03 STORAGE ROOM", "requirement": "none"},
+        {"id": "D-04", "tile": (12, 6), "to": "medbay", "spawn": (2, 2), "label": "B1-04 MED BAY", "requirement": "none"},
         {
             "id": "D-06",
-            "tile": (15, 8),
+            "tile": (10, 1),
             "to": "area3",
-            "spawn": (2, 8),
+            "spawn": (10, 9),
             "label": "B1-07 ELEVATOR LOBBY",
             "requirement": "lasers_off",
             "locked": "Checkpoint sealed. Enable maintenance breaker",
         },
     ],
     "area3": [
-        {"id": "D-06R", "tile": (2, 9), "to": "area2", "spawn": (16, 8), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
+        {"id": "D-06R", "tile": (10, 9), "to": "area2", "spawn": (10, 2), "label": "B1-06 SECURITY CHECKPOINT", "requirement": "none"},
         {
             "id": "D-08",
             "tile": (15, 1),
@@ -562,13 +562,26 @@ class Game:
 
     def setup_area2_lasers(self) -> None:
         self.lasers = [
-            LaserBeam(pygame.Rect(4 * TILE_SIZE, 3 * TILE_SIZE + 7, 11 * TILE_SIZE, 2), 1.4, 1.0, 0.0),
-            LaserBeam(pygame.Rect(9 * TILE_SIZE + 7, 2 * TILE_SIZE, 2, 7 * TILE_SIZE), 1.0, 1.2, 0.5),
-            LaserBeam(pygame.Rect(5 * TILE_SIZE, 7 * TILE_SIZE + 7, 10 * TILE_SIZE, 2), 1.2, 1.1, 0.9),
+            LaserBeam(pygame.Rect(8 * TILE_SIZE, 3 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.3, 1.0, 0.0),
+            LaserBeam(pygame.Rect(8 * TILE_SIZE, 6 * TILE_SIZE + 7, 4 * TILE_SIZE, 2), 1.1, 1.2, 0.45),
+            LaserBeam(pygame.Rect(10 * TILE_SIZE + 7, 4 * TILE_SIZE, 2, 3 * TILE_SIZE), 1.0, 1.0, 0.8),
         ]
 
+    def get_flashlight_radius(self) -> float:
+        if not self.flashlight_on or self.battery <= 0:
+            return 0.0
+        return 56.0 if self.battery > 20 else 46.0
+
     def can_reveal_pickups(self) -> bool:
-        return self.flashlight_on and self.battery > 0
+        return self.get_flashlight_radius() > 0
+
+    def is_pickup_in_flashlight_range(self, pickup: ItemPickup) -> bool:
+        radius = self.get_flashlight_radius()
+        if radius <= 0:
+            return False
+        player_center = pygame.Vector2(self.player.centerx, self.player.centery)
+        pickup_center = pygame.Vector2(pickup.rect.centerx, pickup.rect.centery)
+        return player_center.distance_to(pickup_center) <= radius + 2.0
 
     def interact_freezer(self, tile: tuple[int, int]) -> bool:
         freezer_key = (self.current_area, tile[0], tile[1])
@@ -875,7 +888,7 @@ class Game:
             return
 
         for pickup in self.pickups[:]:
-            if self.player.colliderect(pickup.rect):
+            if self.player.colliderect(pickup.rect) and self.is_pickup_in_flashlight_range(pickup):
                 self.emit_particles(pickup.rect.centerx, pickup.rect.centery, 8, PALETTE["battery"])
                 if pickup.name == "key":
                     self.has_key = True
@@ -1460,6 +1473,8 @@ class Game:
         }
         if self.can_reveal_pickups():
             for pickup in self.pickups:
+                if not self.is_pickup_in_flashlight_range(pickup):
+                    continue
                 center = pygame.Vector2(pickup.rect.centerx, pickup.rect.centery)
                 if player_center.distance_to(center) < 60:
                     labels.append((pickup_labels.get(pickup.name, pickup.name.title()), int(center.x), int(center.y - 14)))
@@ -1615,6 +1630,8 @@ class Game:
     def draw_entities(self) -> None:
         if self.can_reveal_pickups():
             for pickup in self.pickups:
+                if not self.is_pickup_in_flashlight_range(pickup):
+                    continue
                 color_name = {
                     "key": "key",
                     "battery": "battery",
