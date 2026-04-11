@@ -75,7 +75,7 @@ AREA_MAPS = {
     "storage": [
         "####################",
         "#..............M...#",
-        "#..P...............#",
+        "#..P......f........#",
         "#..................#",
         "#.....##...........#",
         "#..................#",
@@ -312,10 +312,12 @@ class Game:
         self.has_flashlight = False
         self.flashlight_on = False
         self.battery = 50
+        self.flashlight_drain_interval = 0.8
         self.bandages = 0
         self.health = 100
         self.max_health = 100
         self.has_knife = False
+        self.freezer_charges: dict[tuple[str, int, int], int] = {}
 
         self.inventory_selected = 0
         self.inventory_cols = 4
@@ -447,6 +449,11 @@ class Game:
                     self.furniture[(x, y)] = "bed"
                 elif cell == "s":
                     self.furniture[(x, y)] = "stool"
+                elif cell == "f":
+                    self.furniture[(x, y)] = "freezer"
+                    freezer_key = (area_id, x, y)
+                    if freezer_key not in self.freezer_charges:
+                        self.freezer_charges[freezer_key] = 4
                 elif cell == "R":
                     self.breaker_tile = (x, y)
                 elif cell == "G":
@@ -559,6 +566,29 @@ class Game:
             LaserBeam(pygame.Rect(9 * TILE_SIZE + 7, 2 * TILE_SIZE, 2, 7 * TILE_SIZE), 1.0, 1.2, 0.5),
             LaserBeam(pygame.Rect(5 * TILE_SIZE, 7 * TILE_SIZE + 7, 10 * TILE_SIZE, 2), 1.2, 1.1, 0.9),
         ]
+
+    def can_reveal_pickups(self) -> bool:
+        return self.flashlight_on and self.battery > 0
+
+    def interact_freezer(self, tile: tuple[int, int]) -> bool:
+        freezer_key = (self.current_area, tile[0], tile[1])
+        charges = self.freezer_charges.get(freezer_key, 0)
+        if charges <= 0:
+            self.message = "Freezer is empty"
+            self.message_timer = 1.0
+            return True
+
+        if self.battery >= 100:
+            self.message = "Battery already full"
+            self.message_timer = 1.0
+            return True
+
+        self.freezer_charges[freezer_key] = charges - 1
+        self.battery = min(100, self.battery + 24)
+        self.emit_particles(tile[0] * TILE_SIZE + TILE_SIZE // 2, tile[1] * TILE_SIZE + TILE_SIZE // 2, 8, PALETTE["battery"])
+        self.message = f"Energy drink used (+BAT). Left: {self.freezer_charges[freezer_key]}"
+        self.message_timer = 1.3
+        return True
 
     def set_objective_for_area(self) -> None:
         if self.current_area == "area1":
@@ -841,6 +871,9 @@ class Game:
                         self.player.top = wall.bottom
 
     def collect_pickups(self) -> None:
+        if not self.can_reveal_pickups():
+            return
+
         for pickup in self.pickups[:]:
             if self.player.colliderect(pickup.rect):
                 self.emit_particles(pickup.rect.centerx, pickup.rect.centery, 8, PALETTE["battery"])
@@ -889,6 +922,13 @@ class Game:
         if nearby_door is not None:
             self.interact_door(nearby_door)
             return
+
+        for (tx, ty), kind in self.furniture.items():
+            if abs(px - tx) + abs(py - ty) > 1:
+                continue
+            if kind == "freezer":
+                self.interact_freezer((tx, ty))
+                return
 
         if self.current_area == "area1":
             for (tx, ty), kind in self.furniture.items():
@@ -994,7 +1034,7 @@ class Game:
             return
 
         self.battery_tick += dt
-        if self.battery_tick >= 0.5:
+        if self.battery_tick >= self.flashlight_drain_interval:
             self.battery_tick = 0.0
             self.battery = max(0, self.battery - 1)
             if self.battery == 0:
@@ -1404,6 +1444,7 @@ class Game:
             "cabinet": "Cabinet",
             "bed": "Bed",
             "stool": "Stool",
+            "freezer": "Freezer",
         }
         for (tx, ty), kind in self.furniture.items():
             center = pygame.Vector2(tx * TILE_SIZE + TILE_SIZE // 2, ty * TILE_SIZE + TILE_SIZE // 2)
@@ -1417,10 +1458,11 @@ class Game:
             "flashlight": "Flashlight",
             "knife": "Knife",
         }
-        for pickup in self.pickups:
-            center = pygame.Vector2(pickup.rect.centerx, pickup.rect.centery)
-            if player_center.distance_to(center) < 60:
-                labels.append((pickup_labels.get(pickup.name, pickup.name.title()), int(center.x), int(center.y - 14)))
+        if self.can_reveal_pickups():
+            for pickup in self.pickups:
+                center = pygame.Vector2(pickup.rect.centerx, pickup.rect.centery)
+                if player_center.distance_to(center) < 60:
+                    labels.append((pickup_labels.get(pickup.name, pickup.name.title()), int(center.x), int(center.y - 14)))
 
         for wolf in self.wolves:
             if not wolf.alive:
@@ -1548,6 +1590,13 @@ class Game:
             elif kind == "bed":
                 self.canvas.fill((82, 62, 56), item_rect)
                 self.canvas.fill((185, 185, 175), pygame.Rect(item_rect.x + 1, item_rect.y + 2, 14, 9))
+            elif kind == "freezer":
+                self.canvas.fill((70, 88, 104), item_rect)
+                pygame.draw.rect(self.canvas, (136, 170, 198), item_rect, 1)
+                freezer_key = (self.current_area, tx, ty)
+                charges = self.freezer_charges.get(freezer_key, 0)
+                light_col = (88, 220, 160) if charges > 0 else (120, 128, 138)
+                self.canvas.fill(light_col, pygame.Rect(item_rect.x + 6, item_rect.y + 3, 4, 4))
             else:
                 self.canvas.fill((95, 78, 66), item_rect)
 
@@ -1564,15 +1613,16 @@ class Game:
             self.canvas.fill(light_col, pygame.Rect(tr.x + 5, tr.y + 4, 6, 6))
 
     def draw_entities(self) -> None:
-        for pickup in self.pickups:
-            color_name = {
-                "key": "key",
-                "battery": "battery",
-                "bandage": "bandage",
-                "flashlight": "flashlight",
-                "knife": "door",
-            }.get(pickup.name, "bandage")
-            self.draw_pickup_icon(pickup.rect, pickup.name, PALETTE[color_name], self.sprite_cache.get(pickup.name))
+        if self.can_reveal_pickups():
+            for pickup in self.pickups:
+                color_name = {
+                    "key": "key",
+                    "battery": "battery",
+                    "bandage": "bandage",
+                    "flashlight": "flashlight",
+                    "knife": "door",
+                }.get(pickup.name, "bandage")
+                self.draw_pickup_icon(pickup.rect, pickup.name, PALETTE[color_name], self.sprite_cache.get(pickup.name))
 
         for wolf in self.wolves:
             if not wolf.alive:
