@@ -851,7 +851,7 @@ class Game:
 
         self.inventory_selected = 0
         self.inventory_cols = 4
-        self.inventory_rows = 3
+        self.inventory_rows = 2
         self.equipped_item = "knife"
         self.show_labels = True
 
@@ -1911,11 +1911,11 @@ class Game:
                     if event.key in (pygame.K_LEFT, pygame.K_a):
                         self.inventory_selected = max(0, self.inventory_selected - 1)
                     elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        self.inventory_selected = min(11, self.inventory_selected + 1)
+                        self.inventory_selected = min(self.inventory_cols * self.inventory_rows - 1, self.inventory_selected + 1)
                     elif event.key in (pygame.K_UP, pygame.K_w):
                         self.inventory_selected = max(0, self.inventory_selected - self.inventory_cols)
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
-                        self.inventory_selected = min(11, self.inventory_selected + self.inventory_cols)
+                        self.inventory_selected = min(self.inventory_cols * self.inventory_rows - 1, self.inventory_selected + self.inventory_cols)
                     elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                         self.inventory_use_selected()
                     elif event.key == pygame.K_f:
@@ -2607,7 +2607,7 @@ class Game:
         self.message_timer = 1.0
 
     def get_inventory_slots(self) -> list[str | None]:
-        slots: list[str | None] = [None] * 12
+        slots: list[str | None] = [None] * (self.inventory_cols * self.inventory_rows)
         slots[0] = "knife" if self.has_knife else None
         slots[1] = "flashlight" if self.has_flashlight else None
         slots[2] = "bandage" if self.bandages > 0 else None
@@ -2677,13 +2677,33 @@ class Game:
         self.set_objective_for_area()
 
     def draw(self) -> None:
-        self.draw_atmosphere_back()
+        cam_viewport = self.get_camera_world_rect()
+        wide_world = self.world_width > INTERNAL_WIDTH
 
+        # For wide maps (Level 2), draw world-space content onto a
+        # world-sized surface so tiles beyond 320px are actually rendered.
+        world_surf = None
+        if wide_world:
+            world_surf = pygame.Surface((self.world_width, self.world_height))
+            self._saved_canvas = self.canvas
+            self.canvas = world_surf
+
+        self.draw_atmosphere_back()
         self.draw_world()
         self.draw_entities()
         self.draw_particles()
         self.draw_darkness_overlay()
         self.draw_player_sprite()
+
+        # Restore the normal canvas and blit the camera viewport onto it.
+        if wide_world:
+            self.canvas = self._saved_canvas
+            scaled_vp = pygame.transform.scale(
+                world_surf.subsurface(cam_viewport),
+                (INTERNAL_WIDTH, INTERNAL_HEIGHT),
+            )
+            self.canvas.blit(scaled_vp, (0, 0))
+
         self.draw_atmosphere_front()
         self.draw_intro_overlay()
 
@@ -2706,14 +2726,20 @@ class Game:
         )
 
         if zoom_gameplay:
-            viewport_world = self.get_camera_world_rect()
-            view_surface = pygame.Surface((viewport_world.width, viewport_world.height))
-            view_surface.blit(self.canvas, (0, 0), viewport_world)
+            if wide_world:
+                # Extract zoomed viewport directly from the world surface
+                view_surface = pygame.Surface((cam_viewport.width, cam_viewport.height))
+                view_surface.blit(world_surf, (0, 0), cam_viewport)
+                viewport_world = cam_viewport
+            else:
+                viewport_world = self.get_camera_world_rect()
+                view_surface = pygame.Surface((viewport_world.width, viewport_world.height))
+                view_surface.blit(self.canvas, (0, 0), viewport_world)
         else:
             viewport_world = pygame.Rect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT)
             view_surface = self.canvas
 
-        self.current_viewport_world = viewport_world
+        self.current_viewport_world = cam_viewport if wide_world else viewport_world
         self.current_render_scale = GAME_VIEW_WIDTH / viewport_world.width
         scaled = pygame.transform.scale(view_surface, (GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT))
 
@@ -3465,8 +3491,19 @@ class Game:
 
     def draw_darkness_overlay(self) -> None:
         theme = self.get_area_theme()
-        overlay = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
         ambient = theme["ambient"]
+        cam = self.get_camera_world_rect()
+        wide = self.world_width > INTERNAL_WIDTH
+
+        if wide:
+            overlay = pygame.Surface((cam.width, cam.height), pygame.SRCALPHA)
+            pcx = float(self.player.centerx - cam.x)
+            pcy = float(self.player.centery - cam.y)
+        else:
+            overlay = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+            pcx = float(self.player.centerx)
+            pcy = float(self.player.centery)
+
         overlay.fill((ambient[0], ambient[1], ambient[2], 124))
 
         tile_x = self.player.centerx // TILE_SIZE
@@ -3475,17 +3512,15 @@ class Game:
 
         if self.flashlight_on and self.battery > 0:
             radius = 56 if self.battery > 20 else 46
-            center = pygame.Vector2(self.player.centerx, self.player.centery)
+            center = pygame.Vector2(pcx, pcy)
             direction = self.last_dir if self.last_dir.length_squared() > 0 else pygame.Vector2(1, 0)
             direction = direction.normalize()
             perpendicular = pygame.Vector2(-direction.y, direction.x)
 
-            # Keep a readable local bubble around the player so nearby props don't disappear.
             local_radius = 34 if self.battery > 20 else 28
             pygame.draw.circle(overlay, (ambient[0], ambient[1], ambient[2], 40), (int(center.x), int(center.y)), local_radius)
             pygame.draw.circle(overlay, (ambient[0], ambient[1], ambient[2], 58), (int(center.x), int(center.y)), local_radius + 10)
 
-            # Forward beam uses overlapping circles with slight side spread to imply a cone.
             beam_nodes = 5
             for idx in range(beam_nodes):
                 t = idx / max(1, beam_nodes - 1)
@@ -3516,10 +3551,13 @@ class Game:
                 )
         elif in_dark_zone:
             radius = 18
-            center = (self.player.centerx, self.player.centery)
+            center = (int(pcx), int(pcy))
             pygame.draw.circle(overlay, (ambient[0], ambient[1], ambient[2], 44), center, radius)
 
-        self.canvas.blit(overlay, (0, 0))
+        if wide:
+            self.canvas.blit(overlay, (cam.x, cam.y))
+        else:
+            self.canvas.blit(overlay, (0, 0))
 
     def draw_inventory_overlay(self) -> None:
         # Dark scrim behind the panel
@@ -3527,15 +3565,16 @@ class Game:
         scrim.fill((0, 0, 0, 128))
         self.canvas.blit(scrim, (0, 0))
 
-        panel = pygame.Surface((236, 138), pygame.SRCALPHA)
+        panel_w, panel_h = 236, 144
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
         panel.fill((11, 16, 24, 240))
-        px = (INTERNAL_WIDTH - panel.get_width()) // 2
-        py_base = (INTERNAL_HEIGHT - panel.get_height()) // 2
+        px = (INTERNAL_WIDTH - panel_w) // 2
+        py_base = (INTERNAL_HEIGHT - panel_h) // 2
         py = int(py_base + (1.0 - self.inventory_anim) * 24)
         panel.set_alpha(int(240 * self.inventory_anim))
         self.canvas.blit(panel, (px, py))
-        pygame.draw.rect(self.canvas, (122, 142, 162), pygame.Rect(px, py, 236, 138), 1)
-        pygame.draw.rect(self.canvas, (65, 80, 98), pygame.Rect(px + 2, py + 2, 232, 134), 1)
+        pygame.draw.rect(self.canvas, (122, 142, 162), pygame.Rect(px, py, panel_w, panel_h), 1)
+        pygame.draw.rect(self.canvas, (65, 80, 98), pygame.Rect(px + 2, py + 2, panel_w - 4, panel_h - 4), 1)
 
         self.blit_pixel_text_centered("ITEMS", pygame.Rect(px + 8, py + 4, 220, 12), self.inventory_title_font)
         self.blit_pixel_text_centered("TAB/ESC CLOSE", pygame.Rect(px + 8, py + 17, 220, 11), self.inventory_font)
@@ -3545,7 +3584,7 @@ class Game:
             row = idx // self.inventory_cols
             col = idx % self.inventory_cols
             sx = px + 16 + col * 52
-            sy = py + 36 + row * 42
+            sy = py + 32 + row * 40
             slot_rect = pygame.Rect(sx, sy, 44, 34)
             is_selected = idx == self.inventory_selected
 
@@ -3566,11 +3605,11 @@ class Game:
         # Description panel
         selected_item = slots[self.inventory_selected] if self.inventory_selected < len(slots) else None
         desc_text = self.ITEM_DESCRIPTIONS.get(selected_item, "Empty slot") if selected_item else "Empty slot"
-        desc_rect = pygame.Rect(px + 12, py + 102, 212, 14)
+        desc_rect = pygame.Rect(px + 12, py + 112, 212, 14)
         self.draw_panel(desc_rect, (16, 20, 28), (50, 62, 78))
         self.blit_pixel_text_centered(desc_text, pygame.Rect(desc_rect.x + 4, desc_rect.y + 2, desc_rect.width - 8, desc_rect.height - 4), self.inventory_font)
 
-        footer = pygame.Rect(px + 10, py + 122, 216, 12)
+        footer = pygame.Rect(px + 10, py + 130, 216, 12)
         self.draw_panel(footer, (26, 34, 45), (95, 112, 132))
         self.blit_pixel_text_centered("ENTER USE  |  F EQUIP", pygame.Rect(footer.x + 2, footer.y + 1, footer.width - 4, footer.height - 2), self.inventory_font)
 
@@ -4041,9 +4080,11 @@ class Game:
         theme = self.get_area_theme()
         top = shift_color(theme["ambient"], -6)
         bottom = mix_color(theme["floor"], theme["wall"], 0.4)
-        for y in range(INTERNAL_HEIGHT):
-            t = y / INTERNAL_HEIGHT
-            pygame.draw.line(self.canvas, mix_color(top, bottom, t), (0, y), (INTERNAL_WIDTH, y))
+        cw = self.canvas.get_width()
+        ch = self.canvas.get_height()
+        for y in range(ch):
+            t = y / ch
+            pygame.draw.line(self.canvas, mix_color(top, bottom, t), (0, y), (cw, y))
 
     def draw_atmosphere_front(self) -> None:
         theme = self.get_area_theme()
