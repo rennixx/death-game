@@ -62,7 +62,7 @@ AREA_MAPS = {
         "#......P...........#",
         "#..b.s.............#",
         "#..................#",
-        "#..................#",
+        "#........S.........#",
         "#..................#",
         "####################",
     ],
@@ -72,7 +72,7 @@ AREA_MAPS = {
         "########....########",
         "########.....#######",
         "#######.....########",
-        "########....########",
+        "########S...########",
         "########.....#######",
         "########....########",
         "########..P.########",
@@ -101,7 +101,7 @@ AREA_MAPS = {
         "#..................#",
         "#.........H........#",
         "#..................#",
-        "#..................#",
+        "#.....S............#",
         "#..................#",
         "####################",
     ],
@@ -140,7 +140,7 @@ AREA_MAPS = {
         "#..................#",
         "#........P.........#",
         "#..................#",
-        "#..................#",
+        "#..........S.......#",
         "#..................#",
         "####################",
     ],
@@ -356,11 +356,27 @@ class SoundManager:
 
 
 class Game:
+    HINT_DEFS = {
+        "interact_door": "Press E to interact",
+        "flashlight_dark": "Press Q for flashlight",
+        "attack_wolf": "Press SPACE to attack",
+        "use_bandage": "Press H to use bandage",
+        "open_inventory": "Press TAB for inventory",
+        "save_terminal": "Press E to save",
+    }
+
+    ITEM_DESCRIPTIONS = {
+        "knife": "Sharp blade. Press SPACE to strike.",
+        "flashlight": "Illuminates dark areas. Press Q to toggle.",
+        "bandage": "Restores 25 HP. Press H to use.",
+        "key": "Opens locked doors. Press E near a door.",
+    }
+
     def __init__(self) -> None:
         # Force nearest-neighbor scaling for crisp pixel output.
         os.environ.setdefault("SDL_RENDER_SCALE_QUALITY", "0")
         pygame.init()
-        pygame.display.set_caption("Escape Room")
+        pygame.display.set_caption("DEATH GAME")
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.DOUBLEBUF | pygame.RESIZABLE)
         self.canvas = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -472,6 +488,18 @@ class Game:
         self.checkpoints: dict[str, tuple[int, int]] = {}
         self.sound = SoundManager()
         self.footstep_timer = 0.0
+        self.save_tiles: list[tuple[int, int]] = []
+        self.hints_shown: set[str] = set()
+        self.active_hint: str = ""
+        self.active_hint_timer: float = 0.0
+        self.active_hint_fade: float = 0.0
+        self.low_hp_pulse_phase: float = 0.0
+        self.dilemma_selection: int = 0  # 0=none, 1=leg, 2=arm
+        self.pause_selected = 0
+        self.area_fade_alpha: float = 0.0
+        self.area_fade_phase: str = "none"  # "none", "fadeOut", "fadeIn"
+        self.area_fade_target: str = ""
+        self.area_fade_spawn: tuple[int, int] | None = None
 
         self.load_visual_assets()
         self.load_area(self.current_area)
@@ -505,6 +533,112 @@ class Game:
         pygame.draw.rect(placeholder, (120, 140, 164), placeholder.get_rect(), 1)
         return placeholder
 
+    def save_game(self) -> None:
+        data = {
+            "area": self.current_area,
+            "player_x": self.player_pos.x,
+            "player_y": self.player_pos.y,
+            "health": self.health,
+            "battery": self.battery,
+            "bandages": self.bandages,
+            "has_flashlight": self.has_flashlight,
+            "has_knife": self.has_knife,
+            "has_key": self.has_key,
+            "flashlight_on": self.flashlight_on,
+            "visited_areas": list(self.visited_areas),
+            "area2_cleared": self.area2_cleared,
+            "dilemma_chosen": getattr(self, "choice_result", None),
+            "final_exit_unlocked": self.final_exit_unlocked,
+            "hints_shown": list(self.hints_shown),
+        }
+        save_path = Path(__file__).resolve().parents[1] / "save.json"
+        with open(save_path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def load_game(self) -> bool:
+        save_path = Path(__file__).resolve().parents[1] / "save.json"
+        if not save_path.exists():
+            return False
+        try:
+            with open(save_path) as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return False
+        self.current_area = data["area"]
+        spawn_tile = (int(data["player_x"]) // TILE_SIZE, int(data["player_y"]) // TILE_SIZE)
+        self.load_area(self.current_area, spawn_override=spawn_tile)
+        self.health = data["health"]
+        self.battery = data["battery"]
+        self.bandages = data["bandages"]
+        self.has_flashlight = data["has_flashlight"]
+        self.has_knife = data["has_knife"]
+        self.has_key = data["has_key"]
+        self.flashlight_on = data["flashlight_on"]
+        self.visited_areas = set(data.get("visited_areas", []))
+        self.area2_cleared = data.get("area2_cleared", False)
+        self.final_exit_unlocked = data.get("final_exit_unlocked", False)
+        self.hints_shown = set(data.get("hints_shown", []))
+        choice = data.get("dilemma_chosen")
+        if choice:
+            self.choice_result = choice
+            self.elevator_choice_made = True
+            if choice == "leg":
+                self.player_speed = self.base_player_speed * 0.65
+            elif choice == "arm":
+                self.attack_speed_mult = 1.7
+        return True
+
+    def try_save_at_terminal(self) -> None:
+        tile_x = self.player.centerx // TILE_SIZE
+        tile_y = self.player.centery // TILE_SIZE
+        for sx, sy in self.save_tiles:
+            if abs(tile_x - sx) + abs(tile_y - sy) <= 1:
+                self.save_game()
+                self.sound.play("save")
+                self.message = "Progress saved"
+                self.message_timer = 1.4
+                return
+
+    def trigger_hint(self, hint_id: str) -> None:
+        if hint_id in self.hints_shown:
+            return
+        self.hints_shown.add(hint_id)
+        self.active_hint = self.HINT_DEFS.get(hint_id, "")
+        self.active_hint_timer = 3.0
+        self.active_hint_fade = 0.0
+
+    def check_contextual_hints(self) -> None:
+        tile_x = self.player.centerx // TILE_SIZE
+        tile_y = self.player.centery // TILE_SIZE
+
+        if "interact_door" not in self.hints_shown:
+            for door in self.current_doors:
+                dx, dy = door["tile"]
+                if abs(tile_x - dx) + abs(tile_y - dy) <= 2:
+                    self.trigger_hint("interact_door")
+                    break
+
+        if "flashlight_dark" not in self.hints_shown and not self.flashlight_on:
+            if (tile_x, tile_y) in self.dark_tiles:
+                self.trigger_hint("flashlight_dark")
+
+        if "attack_wolf" not in self.hints_shown:
+            for wolf in self.wolves:
+                if wolf.alive:
+                    dist = math.hypot(self.player.centerx - wolf.rect.centerx, self.player.centery - wolf.rect.centery)
+                    if dist < 48:
+                        self.trigger_hint("attack_wolf")
+                        break
+
+        if "use_bandage" not in self.hints_shown and self.health < 50 and self.bandages > 0:
+            self.trigger_hint("use_bandage")
+
+        if "save_terminal" not in self.hints_shown:
+            for sx, sy in self.save_tiles:
+                if abs(tile_x - sx) + abs(tile_y - sy) <= 2:
+                    self.trigger_hint("save_terminal")
+                    break
+
     def load_area(self, area_id: str, spawn_override: tuple[int, int] | None = None) -> None:
         self.current_area = area_id
         self.visited_areas.add(area_id)
@@ -517,6 +651,7 @@ class Game:
         self.traps.clear()
         self.pickups.clear()
         self.wolves.clear()
+        self.save_tiles = []
         self.dark_tiles.clear()
         self.furniture.clear()
         self.lasers.clear()
@@ -567,6 +702,8 @@ class Game:
                     self.wolves.append(Wolf(x * TILE_SIZE + 2, y * TILE_SIZE + 2))
                 elif cell == "X":
                     self.final_exit_tile = (x, y)
+                elif cell == "S":
+                    self.save_tiles.append((x, y))
 
         self.checkpoints[area_id] = spawn
         spawn_tile = spawn_override if spawn_override is not None else spawn
@@ -652,7 +789,7 @@ class Game:
         spawn = door.get("spawn", None)
         spawn_override = spawn if isinstance(spawn, tuple) else None
         self.sound.play("door")
-        self.load_area(target_area, spawn_override)
+        self.start_area_transition(target_area, spawn_override)
         zone_code, zone_name, _ = self.get_area_meta(target_area)
         self.message = f"Entering {zone_code} {zone_name}"
         self.message_timer = 1.4
@@ -774,6 +911,11 @@ class Game:
         else:
             self.shake_strength *= 0.9
 
+        if self.health < self.max_health * 0.3:
+            self.low_hp_pulse_phase += dt * 5.2
+        else:
+            self.low_hp_pulse_phase = 0.0
+
         for p in self.particles[:]:
             p.life -= dt
             if p.life <= 0:
@@ -843,6 +985,23 @@ class Game:
                     if self.state == "inventory":
                         self.state = "explore"
                         continue
+                    elif self.state == "explore":
+                        self.state = "pause"
+                        self.pause_selected = 0
+                        continue
+                    elif self.state == "pause":
+                        self.state = "explore"
+                        continue
+                    pygame.quit()
+                    sys.exit(0)
+
+                if self.state == "dead" and event.key:
+                    save_path = Path(__file__).resolve().parents[1] / "save.json"
+                    if save_path.exists():
+                        save_path.unlink()
+                    self.__init__()
+                    continue
+                if self.state == "won" and event.key:
                     pygame.quit()
                     sys.exit(0)
 
@@ -886,11 +1045,47 @@ class Game:
 
                 if self.state == "dilemma":
                     if event.key == pygame.K_1:
-                        self.choose_dilemma("leg")
+                        self.dilemma_selection = 1
                     elif event.key == pygame.K_2:
-                        self.choose_dilemma("arm")
+                        self.dilemma_selection = 2
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        if self.dilemma_selection == 1:
+                            self.choose_dilemma("leg")
+                        elif self.dilemma_selection == 2:
+                            self.choose_dilemma("arm")
+                    elif event.key == pygame.K_ESCAPE:
+                        self.state = "explore"
+                        self.dilemma_selection = 0
+
+                if self.state == "pause":
+                    if event.key == pygame.K_UP:
+                        self.pause_selected = (self.pause_selected - 1) % 3
+                    elif event.key == pygame.K_DOWN:
+                        self.pause_selected = (self.pause_selected + 1) % 3
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        if self.pause_selected == 0:
+                            self.state = "explore"
+                        elif self.pause_selected == 1:
+                            self.save_game()
+                            pygame.quit()
+                            sys.exit(0)
+                        elif self.pause_selected == 2:
+                            pygame.quit()
+                            sys.exit(0)
 
     def update_explore(self, dt: float) -> None:
+        if self.area_fade_phase == "fadeOut":
+            self.area_fade_alpha = min(255, self.area_fade_alpha + dt * 850)
+            if self.area_fade_alpha >= 255:
+                self.load_area(self.area_fade_target, self.area_fade_spawn)
+                self.area_fade_phase = "fadeIn"
+            return
+        if self.area_fade_phase == "fadeIn":
+            self.area_fade_alpha = max(0, self.area_fade_alpha - dt * 850)
+            if self.area_fade_alpha <= 0:
+                self.area_fade_phase = "none"
+            return
+
         self.intro_timer = max(0.0, self.intro_timer - dt)
         self.message_timer = max(0.0, self.message_timer - dt)
         self.damage_flash = max(0.0, self.damage_flash - dt)
@@ -944,6 +1139,15 @@ class Game:
         self.update_wolves(dt)
         self.update_flashlight(dt)
         self.update_area2_hazards()
+        self.check_contextual_hints()
+
+        if self.active_hint_timer > 0:
+            self.active_hint_timer -= dt
+            self.active_hint_fade = min(1.0, self.active_hint_fade + dt * 4.0)
+            if self.active_hint_timer <= 0:
+                self.active_hint = ""
+        else:
+            self.active_hint_fade = max(0.0, self.active_hint_fade - dt * 2.0)
 
         if self.current_area == "final" and not self.final_exit_unlocked and not any(w.alive for w in self.wolves):
             self.final_exit_unlocked = True
@@ -1016,6 +1220,7 @@ class Game:
                 self.set_objective_for_area()
                 self.message_timer = 1.5
                 self.pickups.remove(pickup)
+                self.trigger_hint("open_inventory")
 
     def check_traps(self) -> None:
         px = self.player.centerx // TILE_SIZE
@@ -1115,6 +1320,7 @@ class Game:
                     return
                 if not self.elevator_choice_made:
                     self.state = "dilemma"
+                    self.dilemma_selection = 0
                     return
 
                 self.message = "Terminal authorized. Elevator unlocked"
@@ -1131,6 +1337,8 @@ class Game:
                     self.message = "Defeat all enemies first"
                     self.message_timer = 1.1
                 return
+
+        self.try_save_at_terminal()
 
     def toggle_flashlight(self) -> None:
         if not self.has_flashlight:
@@ -1325,10 +1533,6 @@ class Game:
             self.draw_inventory_overlay()
         if self.dilemma_anim > 0.01:
             self.draw_dilemma_overlay()
-        if self.state == "dead":
-            self.draw_center_banner("YOU DIED")
-        elif self.state == "won":
-            self.draw_center_banner("LEVEL 1 CLEARED")
 
         if self.damage_flash > 0:
             alpha = int(140 * (self.damage_flash / 0.18))
@@ -1355,10 +1559,23 @@ class Game:
         else:
             self.screen.blit(scaled, (view_x, view_y))
 
-        self.draw_world_labels_screen(view_rect)
-        self.draw_shell_ui(view_rect)
-        self.draw_zone_card_screen(view_rect)
+        if self.area_fade_alpha > 0:
+            fade_surf = pygame.Surface((GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT), pygame.SRCALPHA)
+            fade_surf.fill((0, 0, 0, int(self.area_fade_alpha)))
+            self.screen.blit(fade_surf, (view_x, view_y))
+
+        self.draw_immersive_hud(view_rect)
+        self.draw_low_hp_pulse(view_rect)
         self.draw_player_popup_screen(view_rect)
+
+        if self.state == "dead":
+            self.draw_death_screen(view_rect)
+        elif self.state == "won":
+            self.draw_victory_screen(view_rect)
+
+        if self.state == "pause":
+            self.draw_pause_menu(view_rect)
+
         pygame.display.flip()
 
     def draw_intro_overlay(self) -> None:
@@ -1401,16 +1618,20 @@ class Game:
             fade_surface.fill((0, 0, 0, 255 - text_alpha))
             self.canvas.blit(fade_surface, (x, y), special_flags=pygame.BLEND_RGBA_SUB)
 
-    def draw_shell_ui(self, view_rect: pygame.Rect) -> None:
-        # Top horizontal shell panel around gameplay.
-        top_panel_h = 62
-        top_panel = pygame.Rect(view_rect.x, max(14, view_rect.y - (top_panel_h + 14)), view_rect.width, top_panel_h)
-        self.draw_screen_panel(top_panel, (18, 24, 33), (62, 78, 96))
 
-        health_panel = pygame.Rect(top_panel.x + 8, top_panel.y + 8, 250, top_panel_h - 16)
-        self.draw_screen_panel(health_panel, (22, 30, 42), (70, 90, 110))
+    def draw_immersive_hud(self, view_rect: pygame.Rect) -> None:
+        if self.state in ("won", "dead"):
+            return
 
-        meter_rect = pygame.Rect(health_panel.x + 12, health_panel.y + 14, health_panel.width - 24, 12)
+        # --- BOTTOM-LEFT: Health + Battery + Bandages ---
+        panel_w, panel_h = 170, 40
+        panel_x = view_rect.x + 8
+        panel_y = view_rect.bottom - panel_h - 8
+        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel_surf.fill((10, 14, 22, 210))
+        self.screen.blit(panel_surf, (panel_x, panel_y))
+        pygame.draw.rect(self.screen, (42, 58, 82), pygame.Rect(panel_x, panel_y, panel_w, panel_h), 1)
+
         health_ratio = self.health / self.max_health
         fill_color = PALETTE["health"]
         if health_ratio < 0.3:
@@ -1418,96 +1639,107 @@ class Game:
         elif health_ratio < 0.6:
             fill_color = PALETTE["health_mid"]
 
-        pygame.draw.rect(self.screen, (11, 14, 19), meter_rect)
-        pygame.draw.rect(self.screen, fill_color, pygame.Rect(meter_rect.x, meter_rect.y, int(meter_rect.width * health_ratio), meter_rect.height))
-        for seg in range(1, 10):
-            sx = meter_rect.x + seg * (meter_rect.width // 10)
-            pygame.draw.line(self.screen, (11, 14, 19), (sx, meter_rect.y), (sx, meter_rect.bottom - 1))
+        # Health label + bar
+        self.blit_pixel_text_on(self.screen, "HP", panel_x + 6, panel_y + 4, self.ui_small_font, fill_color)
+        bar_x = panel_x + 26
+        bar_w = 100
+        bar_h = 6
+        bar_y = panel_y + 5
+        pygame.draw.rect(self.screen, (11, 14, 19), pygame.Rect(bar_x, bar_y, bar_w, bar_h))
+        pygame.draw.rect(self.screen, fill_color, pygame.Rect(bar_x, bar_y, int(bar_w * health_ratio), bar_h))
 
-        self.blit_text_shadow_on(self.screen, "HEALTH", health_panel.x + 12, health_panel.y + 4)
-        self.blit_text_shadow_on(self.screen, f"HP {self.health:03d}   BAT {self.battery:03d}   BAND {self.bandages}", health_panel.x + 12, health_panel.y + 30, health_panel.width - 24)
+        # Battery bar below
+        bat_color = PALETTE["battery"]
+        bat_y = bar_y + bar_h + 3
+        self.blit_pixel_text_on(self.screen, "BAT", panel_x + 6, bat_y, self.ui_small_font, bat_color)
+        bat_bar_x = bar_x + 8
+        bat_bar_w = bar_w - 8
+        bat_ratio = self.battery / 100.0
+        pygame.draw.rect(self.screen, (11, 14, 19), pygame.Rect(bat_bar_x, bat_y, bat_bar_w, 4))
+        pygame.draw.rect(self.screen, bat_color, pygame.Rect(bat_bar_x, bat_y, int(bat_bar_w * bat_ratio), 4))
 
-        right_w = top_panel.width - (health_panel.width + 24)
-        right_panel = pygame.Rect(health_panel.right + 8, top_panel.y + 8, right_w, top_panel_h - 16)
-        self.draw_screen_panel(right_panel, (22, 30, 42), (70, 90, 110))
+        # Bandages
+        self.blit_pixel_text_on(self.screen, f"BAND x{self.bandages}", panel_x + 6, bat_y + 8, self.ui_small_font, PALETTE["bandage"])
 
-        zone_code, zone_name, _ = self.get_area_meta()
-        self.blit_text_shadow_on(self.screen, f"{zone_code}  {zone_name}", right_panel.x + 8, right_panel.y + 2, right_panel.width - 16)
-        self.blit_multiline_left_shadow_on(
-            self.screen,
-            self.objective,
-            pygame.Rect(right_panel.x + 8, right_panel.y + 14, right_panel.width - 16, 12),
-        )
-        self.draw_building_flow_strip(pygame.Rect(right_panel.x + 8, right_panel.y + 29, right_panel.width - 16, 15))
+        # --- BOTTOM-CENTER: Quick Slots ---
+        slot_size = 36
+        slot_gap = 4
+        quick_items = ["knife", "flashlight", "bandage"]
+        total_w = len(quick_items) * slot_size + (len(quick_items) - 1) * slot_gap
+        slots_x = view_rect.centerx - total_w // 2
+        slots_y = view_rect.bottom - slot_size - 8
 
-        # Bottom bar for quick item slots around gameplay.
-        slot_panel = pygame.Rect(view_rect.centerx - 162, view_rect.bottom + 16, 324, 64)
-        self.draw_screen_panel(slot_panel, (18, 24, 33), (62, 78, 96))
-        self.blit_text_centered_shadow_on(self.screen, "ITEMS", pygame.Rect(slot_panel.x + 6, slot_panel.y + 4, slot_panel.width - 12, 12))
-        self.draw_quick_slots_screen(slot_panel)
+        for idx, item_name in enumerate(quick_items):
+            sx = slots_x + idx * (slot_size + slot_gap)
+            has_item = (item_name == "knife" and self.has_knife) or \
+                       (item_name == "flashlight" and self.has_flashlight) or \
+                       (item_name == "bandage" and self.bandages > 0)
+            is_active = self.equipped_item == item_name
 
-    def draw_building_flow_strip(self, rect: pygame.Rect) -> None:
-        self.draw_screen_panel(rect, (16, 23, 31), (72, 90, 110))
-
-        try:
-            current_idx = AREA_FLOW_ORDER.index(self.current_area)
-        except ValueError:
-            current_idx = 0
-
-        step_count = len(AREA_FLOW_ORDER)
-        gap = 3
-        inner_x = rect.x + 3
-        inner_y = rect.y + 2
-        inner_h = rect.height - 4
-        step_w = max(20, (rect.width - 6 - gap * (step_count - 1)) // step_count)
-
-        for idx, area_id in enumerate(AREA_FLOW_ORDER):
-            sx = inner_x + idx * (step_w + gap)
-            step_rect = pygame.Rect(sx, inner_y, step_w, inner_h)
-            visited = area_id in self.visited_areas
-
-            if idx == current_idx:
-                fill = (52, 74, 102)
-                border = (122, 172, 240)
-                text_col = (236, 243, 252)
-            elif visited:
-                fill = (44, 76, 66)
-                border = (98, 160, 134)
-                text_col = (214, 241, 230)
+            if has_item:
+                border = (90, 170, 200) if is_active else (58, 74, 94)
+                fill_alpha = 210
             else:
-                fill = (32, 41, 54)
-                border = (74, 90, 112)
-                text_col = (168, 182, 198)
+                border = (26, 34, 46)
+                fill_alpha = 80
 
-            self.screen.fill(fill, step_rect)
-            pygame.draw.rect(self.screen, border, step_rect, 1)
+            slot_surf = pygame.Surface((slot_size, slot_size), pygame.SRCALPHA)
+            slot_surf.fill((10, 14, 22, fill_alpha))
+            self.screen.blit(slot_surf, (sx, slots_y))
+            pygame.draw.rect(self.screen, border, pygame.Rect(sx, slots_y, slot_size, slot_size), 1)
 
-            _, _, short_name = self.get_area_meta(area_id)
-            short_w, short_h = self.ui_small_font.size(short_name)
-            tx = step_rect.x + (step_rect.width - short_w) // 2
-            ty = step_rect.y + (step_rect.height - short_h) // 2
-            self.blit_pixel_text_on(self.screen, short_name, tx, ty, self.ui_small_font, text_col)
+            if is_active and has_item:
+                glow_surf = pygame.Surface((slot_size + 4, slot_size + 4), pygame.SRCALPHA)
+                glow_surf.fill((92, 159, 179, 30))
+                self.screen.blit(glow_surf, (sx - 2, slots_y - 2))
 
-    def draw_zone_card_screen(self, view_rect: pygame.Rect) -> None:
-        if self.zone_card_timer <= 0 or not self.zone_card_title:
+            if has_item and item_name in self.sprite_cache and self.sprite_cache[item_name] is not None:
+                icon = pygame.transform.scale(self.sprite_cache[item_name], (18, 18))
+                self.screen.blit(icon, (sx + (slot_size - 18) // 2, slots_y + 4))
+
+            num_text = str(idx + 1)
+            self.blit_pixel_text_on(self.screen, num_text, sx + slot_size - 10, slots_y + 2, self.ui_small_font, (130, 148, 168) if has_item else (50, 60, 74))
+
+        # --- TOP-RIGHT: Zone + Objective ---
+        zone_code, zone_name, _ = self.get_area_meta()
+        info_w = 160
+        info_h = 28
+        info_x = view_rect.right - info_w - 8
+        info_y = view_rect.y + 8
+        info_surf = pygame.Surface((info_w, info_h), pygame.SRCALPHA)
+        info_surf.fill((10, 14, 22, 160))
+        self.screen.blit(info_surf, (info_x, info_y))
+        pygame.draw.rect(self.screen, (26, 42, 58), pygame.Rect(info_x, info_y, info_w, info_h), 1)
+        self.blit_pixel_text_on(self.screen, f"{zone_code}  {zone_name}", info_x + 6, info_y + 2, self.ui_small_font, (58, 90, 122))
+        self.blit_pixel_text_on(self.screen, self.objective, info_x + 6, info_y + 14, self.ui_small_font, (90, 122, 154))
+
+        # --- TOP-LEFT: Contextual Hint ---
+        if self.active_hint and self.active_hint_fade > 0.01:
+            hint_alpha = int(210 * self.active_hint_fade)
+            hint_w = self.ui_small_font.size(self.active_hint)[0] + 16
+            hint_h = 18
+            hint_x = view_rect.x + 8
+            hint_y = view_rect.y + 8
+            hint_surf = pygame.Surface((hint_w, hint_h), pygame.SRCALPHA)
+            hint_surf.fill((10, 14, 22, hint_alpha))
+            self.screen.blit(hint_surf, (hint_x, hint_y))
+            pygame.draw.rect(self.screen, (42, 74, 58), pygame.Rect(hint_x, hint_y, hint_w, hint_h), 1)
+            self.blit_pixel_text_on(self.screen, self.active_hint, hint_x + 8, hint_y + 3, self.ui_small_font, (74, 138, 90))
+
+    def draw_low_hp_pulse(self, view_rect: pygame.Rect) -> None:
+        if self.low_hp_pulse_phase <= 0:
             return
-        if self.state in ("inventory", "dilemma", "won", "dead"):
-            return
-
-        card_w = min(280, view_rect.width - 14)
-        card_h = 30
-        offset_y = int((1.0 - self.zone_card_anim) * -12)
-        card_x = view_rect.x + 7
-        card_y = view_rect.y + 7 + offset_y
-
-        card = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-        alpha = int(220 * self.zone_card_anim)
-        card.fill((10, 16, 24, alpha))
-        self.screen.blit(card, (card_x, card_y))
-        pygame.draw.rect(self.screen, (102, 124, 150), pygame.Rect(card_x, card_y, card_w, card_h), 1)
-
-        self.blit_pixel_text_on(self.screen, self.zone_card_title, card_x + 8, card_y + 4, self.ui_small_font, (192, 208, 226))
-        self.blit_pixel_text_on(self.screen, self.zone_card_subtitle, card_x + 8, card_y + 15, self.ui_font)
+        pulse = 0.5 + 0.5 * math.sin(self.low_hp_pulse_phase)
+        alpha = int(pulse * 60)
+        pulse_surf = pygame.Surface((view_rect.width, view_rect.height), pygame.SRCALPHA)
+        for i in range(3):
+            border_w = 20 + i * 15
+            border_alpha = max(0, alpha - i * 15)
+            pygame.draw.rect(pulse_surf, (199, 70, 70, border_alpha), pygame.Rect(0, 0, view_rect.width, border_w))
+            pygame.draw.rect(pulse_surf, (199, 70, 70, border_alpha), pygame.Rect(0, view_rect.height - border_w, view_rect.width, border_w))
+            pygame.draw.rect(pulse_surf, (199, 70, 70, border_alpha), pygame.Rect(0, 0, border_w, view_rect.height))
+            pygame.draw.rect(pulse_surf, (199, 70, 70, border_alpha), pygame.Rect(view_rect.width - border_w, 0, border_w, view_rect.height))
+        self.screen.blit(pulse_surf, (view_rect.x, view_rect.y))
 
     def draw_player_popup_screen(self, view_rect: pygame.Rect) -> None:
         if self.message_timer <= 0 or not self.message:
@@ -1550,22 +1782,6 @@ class Game:
         for line in lines:
             self.blit_text_shadow_on(self.screen, line, bubble_rect.x + 6, text_y, line_width)
             text_y += line_h
-
-    def draw_quick_slots_screen(self, slot_panel: pygame.Rect) -> None:
-        total_width = 5 * 56
-        start_x = slot_panel.x + (slot_panel.width - total_width) // 2
-        y = slot_panel.y + 22
-        quick_items = ["knife", "flashlight", "bandage", "key", self.equipped_item]
-        for idx in range(5):
-            rect = pygame.Rect(start_x + idx * 56, y, 48, 34)
-            self.draw_screen_panel(rect, (30, 38, 50), (88, 106, 126))
-            item = quick_items[idx]
-            if item in self.sprite_cache and self.sprite_cache[item] is not None:
-                icon = pygame.transform.scale(self.sprite_cache[item], (18, 18))
-                self.screen.blit(icon, (rect.x + 4, rect.y + 8))
-            num_text = str(idx + 1)
-            num_w = self.ui_small_font.size(num_text)[0]
-            self.blit_pixel_text_on(self.screen, num_text, rect.right - num_w - 3, rect.y + 2, self.ui_small_font, (198, 213, 228))
 
     def collect_world_labels(self) -> list[tuple[str, int, int]]:
         labels: list[tuple[str, int, int]] = []
@@ -1820,46 +2036,12 @@ class Game:
 
         self.canvas.blit(overlay, (0, 0))
 
-    def draw_hud(self) -> None:
-        hud_rect = pygame.Rect(4, 4, 128, 20)
-        self.draw_panel(hud_rect, (18, 24, 33), (62, 78, 96))
-
-        health_ratio = self.health / self.max_health
-        fill_color = PALETTE["health"]
-        if health_ratio < 0.3:
-            fill_color = PALETTE["health_low"]
-        elif health_ratio < 0.6:
-            fill_color = PALETTE["health_mid"]
-
-        meter_bg = pygame.Rect(9, 9, 108, 10)
-        self.canvas.fill((11, 14, 19), meter_bg)
-        self.canvas.fill(fill_color, pygame.Rect(9, 9, int(108 * health_ratio), 10))
-        for seg in range(1, 9):
-            sx = meter_bg.x + seg * 12
-            pygame.draw.line(self.canvas, (11, 14, 19), (sx, meter_bg.y), (sx, meter_bg.bottom - 1))
-
-        self.blit_text_shadow(f"HP {self.health:03d}", 8, 10)
-        self.blit_text_shadow(f"Battery {self.battery:03d}", 8, 26)
-
-        objective_box = pygame.Rect(INTERNAL_WIDTH - 132, 4, 128, 30)
-        self.draw_panel(objective_box, (18, 24, 33), (62, 78, 96))
-        title_rect = pygame.Rect(objective_box.x + 2, objective_box.y + 1, objective_box.width - 4, 8)
-        text_rect = pygame.Rect(objective_box.x + 4, objective_box.y + 10, objective_box.width - 8, objective_box.height - 12)
-        self.blit_text_centered_shadow("Objective", title_rect)
-        self.blit_multiline_left_shadow(self.objective, text_rect)
-
-        self.draw_quick_slots()
-
-        if self.message_timer > 0:
-            msg_width = 220
-            wrapped = self.wrap_text(self.message, self.font, msg_width - 8)
-            msg_height = 10 + max(1, len(wrapped)) * 8
-            msg_y = int(22 + (1.0 - self.banner_anim) * -14)
-            msg_bg = pygame.Rect(6, msg_y, msg_width, msg_height)
-            self.draw_panel(msg_bg, (28, 34, 44), (85, 102, 120))
-            self.blit_multiline_left_shadow(self.message, pygame.Rect(msg_bg.x + 4, msg_bg.y + 2, msg_bg.width - 8, msg_bg.height - 4))
-
     def draw_inventory_overlay(self) -> None:
+        # Dark scrim behind the panel
+        scrim = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+        scrim.fill((0, 0, 0, 128))
+        self.canvas.blit(scrim, (0, 0))
+
         panel = pygame.Surface((236, 138), pygame.SRCALPHA)
         panel.fill((11, 16, 24, 240))
         px = (INTERNAL_WIDTH - panel.get_width()) // 2
@@ -1881,9 +2063,14 @@ class Game:
             sy = py + 36 + row * 42
             slot_rect = pygame.Rect(sx, sy, 44, 34)
             is_selected = idx == self.inventory_selected
-            self.draw_panel(slot_rect, (34, 44, 58), (130, 160, 188) if is_selected else (78, 96, 116))
 
-            if item is not None:
+            if item is None:
+                # Empty slots dimmed
+                self.draw_panel(slot_rect, (20, 24, 32), (26, 34, 46))
+            else:
+                border_color = (90, 138, 184) if is_selected else (78, 96, 116)
+                self.draw_panel(slot_rect, (34, 44, 58), border_color)
+
                 if item in self.sprite_cache and self.sprite_cache[item] is not None:
                     sprite = pygame.transform.scale(self.sprite_cache[item], (14, 14))
                     self.canvas.blit(sprite, (sx + (slot_rect.width - 14) // 2, sy + 4))
@@ -1891,25 +2078,51 @@ class Game:
                 if item == "bandage":
                     self.blit_pixel_text(str(self.bandages), sx + 34, sy + 1, self.inventory_small_font)
 
+        # Description panel
+        selected_item = slots[self.inventory_selected] if self.inventory_selected < len(slots) else None
+        desc_text = self.ITEM_DESCRIPTIONS.get(selected_item, "Empty slot") if selected_item else "Empty slot"
+        desc_rect = pygame.Rect(px + 12, py + 102, 212, 14)
+        self.draw_panel(desc_rect, (16, 20, 28), (50, 62, 78))
+        self.blit_pixel_text_centered(desc_text, pygame.Rect(desc_rect.x + 4, desc_rect.y + 2, desc_rect.width - 8, desc_rect.height - 4), self.inventory_font)
+
         footer = pygame.Rect(px + 10, py + 122, 216, 12)
         self.draw_panel(footer, (26, 34, 45), (95, 112, 132))
         self.blit_pixel_text_centered("ENTER USE  |  F EQUIP", pygame.Rect(footer.x + 2, footer.y + 1, footer.width - 4, footer.height - 2), self.inventory_font)
 
     def draw_dilemma_overlay(self) -> None:
-        panel = pygame.Surface((280, 120), pygame.SRCALPHA)
+        panel_h = 130
+        panel = pygame.Surface((280, panel_h), pygame.SRCALPHA)
         panel.fill((18, 15, 18, 245))
         px = (INTERNAL_WIDTH - panel.get_width()) // 2
         py_base = (INTERNAL_HEIGHT - panel.get_height()) // 2
         py = int(py_base + (1.0 - self.dilemma_anim) * 18)
         panel.set_alpha(int(245 * self.dilemma_anim))
         self.canvas.blit(panel, (px, py))
-        pygame.draw.rect(self.canvas, (150, 98, 98), pygame.Rect(px, py, 280, 120), 1)
+        pygame.draw.rect(self.canvas, (150, 98, 98), pygame.Rect(px, py, 280, panel_h), 1)
 
         text_w = 280 - 24
-        self.blit_text_shadow("ELEVATOR LIMIT: 60KG", px + 12, py + 12, text_w)
-        self.blit_text_shadow("Choose your sacrifice", px + 12, py + 28, text_w)
-        self.blit_text_shadow("1) Cut leg   lower move speed", px + 12, py + 52, text_w)
-        self.blit_text_shadow("2) Cut arm   slower attack", px + 12, py + 68, text_w)
+        self.blit_text_shadow("ELEVATOR LIMIT: 60KG", px + 12, py + 10, text_w)
+        self.blit_text_shadow("Choose your sacrifice", px + 12, py + 24, text_w)
+
+        # Option 1: Leg
+        opt1_selected = self.dilemma_selection == 1
+        opt1_border = (199, 144, 70) if opt1_selected else (58, 42, 42)
+        opt1_rect = pygame.Rect(px + 8, py + 40, 264, 22)
+        self.draw_panel(opt1_rect, (28, 20, 20) if opt1_selected else (22, 18, 18), opt1_border)
+        self.blit_text_shadow("[1] Cut leg", px + 14, py + 42, text_w)
+        self.blit_text_shadow("Move speed 70 -> 45 (-36%)", px + 14, py + 52, text_w)
+
+        # Option 2: Arm
+        opt2_selected = self.dilemma_selection == 2
+        opt2_border = (199, 144, 70) if opt2_selected else (58, 42, 42)
+        opt2_rect = pygame.Rect(px + 8, py + 66, 264, 22)
+        self.draw_panel(opt2_rect, (28, 20, 20) if opt2_selected else (22, 18, 18), opt2_border)
+        self.blit_text_shadow("[2] Cut arm", px + 14, py + 68, text_w)
+        self.blit_text_shadow("Attack speed 1.0s -> 1.7s (+70%)", px + 14, py + 78, text_w)
+
+        # Warning and footer
+        self.blit_text_shadow("This cannot be undone", px + 12, py + 94, text_w)
+        self.blit_pixel_text_centered("1/2 select | ENTER confirm | ESC cancel", pygame.Rect(px + 8, py + 112, 264, 12), self.inventory_font)
 
     def draw_center_banner(self, text: str) -> None:
         box = pygame.Surface((180, 44), pygame.SRCALPHA)
@@ -1920,6 +2133,86 @@ class Game:
         pygame.draw.rect(self.canvas, (133, 156, 178), pygame.Rect(x, y, 180, 44), 1)
         text_w, text_h = self.big_font.size(text)
         self.blit_pixel_text_on(self.canvas, text, x + (180 - text_w) // 2, y + (44 - text_h) // 2, self.big_font)
+
+    def start_area_transition(self, target_area: str, spawn_override: tuple[int, int] | None = None) -> None:
+        self.area_fade_phase = "fadeOut"
+        self.area_fade_target = target_area
+        self.area_fade_spawn = spawn_override
+        self.area_fade_alpha = 0.0
+
+    def draw_pause_menu(self, view_rect: pygame.Rect) -> None:
+        scrim = pygame.Surface((view_rect.width, view_rect.height), pygame.SRCALPHA)
+        scrim.fill((0, 0, 0, 160))
+        self.screen.blit(scrim, (view_rect.x, view_rect.y))
+
+        menu_w, menu_h = 220, 140
+        menu_x = view_rect.centerx - menu_w // 2
+        menu_y = view_rect.centery - menu_h // 2
+
+        panel = pygame.Surface((menu_w, menu_h), pygame.SRCALPHA)
+        panel.fill((12, 16, 24, 240))
+        self.screen.blit(panel, (menu_x, menu_y))
+        pygame.draw.rect(self.screen, (42, 58, 82), pygame.Rect(menu_x, menu_y, menu_w, menu_h), 1)
+
+        # Title
+        title_text = self.big_font.render("PAUSED", True, (180, 196, 216))
+        title_x = menu_x + (menu_w - title_text.get_width()) // 2
+        self.screen.blit(title_text, (title_x, menu_y + 10))
+
+        items = ["Resume", "Save & Quit", "Quit"]
+        for idx, label in enumerate(items):
+            item_y = menu_y + 40 + idx * 28
+            is_selected = idx == self.pause_selected
+            item_rect = pygame.Rect(menu_x + 20, item_y, menu_w - 40, 22)
+
+            if is_selected:
+                item_surf = pygame.Surface((item_rect.width, item_rect.height), pygame.SRCALPHA)
+                item_surf.fill((18, 22, 32, 200))
+                self.screen.blit(item_surf, (item_rect.x, item_rect.y))
+                border = (138, 64, 64) if idx >= 1 else (90, 138, 184)
+                text_color = (184, 106, 106) if idx >= 1 else (220, 232, 244)
+            else:
+                border = (42, 52, 66)
+                text_color = (106, 118, 134)
+
+            pygame.draw.rect(self.screen, border, item_rect, 1)
+            lbl = self.ui_font.render(label, True, text_color)
+            lbl_x = item_rect.x + (item_rect.width - lbl.get_width()) // 2
+            lbl_y = item_rect.y + (item_rect.height - lbl.get_height()) // 2
+            self.screen.blit(lbl, (lbl_x, lbl_y))
+
+    def draw_death_screen(self, view_rect: pygame.Rect) -> None:
+        vignette = pygame.Surface((view_rect.width, view_rect.height), pygame.SRCALPHA)
+        vignette.fill((80, 10, 10, 120))
+        self.screen.blit(vignette, (view_rect.x, view_rect.y))
+
+        text = self.big_font.render("YOU DIED", True, (199, 70, 70))
+        tx = view_rect.centerx - text.get_width() // 2
+        ty = view_rect.centery - text.get_height() // 2 - 10
+        self.screen.blit(text, (tx, ty))
+
+        prompt = self.ui_small_font.render("Press any key to restart", True, (106, 74, 74))
+        px = view_rect.centerx - prompt.get_width() // 2
+        py = ty + 30
+        self.screen.blit(prompt, (px, py))
+
+    def draw_victory_screen(self, view_rect: pygame.Rect) -> None:
+        text = self.big_font.render("YOU ESCAPED", True, (92, 179, 130))
+        tx = view_rect.centerx - text.get_width() // 2
+        ty = view_rect.centery - text.get_height() // 2 - 20
+        self.screen.blit(text, (tx, ty))
+
+        time_str = f"Time: {self.time_alive:.0f}s"
+        hp_str = f"HP remaining: {self.health}"
+        stats = self.ui_small_font.render(f"{time_str}  |  {hp_str}", True, (122, 154, 138))
+        sx = view_rect.centerx - stats.get_width() // 2
+        sy = ty + 24
+        self.screen.blit(stats, (sx, sy))
+
+        prompt = self.ui_small_font.render("Press any key to exit", True, (90, 122, 106))
+        px = view_rect.centerx - prompt.get_width() // 2
+        py = sy + 20
+        self.screen.blit(prompt, (px, py))
 
     def blit_text(self, text: str, x: int, y: int) -> None:
         self.blit_pixel_text_on(self.canvas, text, x, y, self.font)
@@ -2035,22 +2328,6 @@ class Game:
         pygame.draw.rect(self.canvas, border, rect, 1)
         inner = rect.inflate(-2, -2)
         pygame.draw.rect(self.canvas, (30, 40, 53), inner, 1)
-
-    def draw_quick_slots(self) -> None:
-        total_width = 5 * 34
-        start_x = (INTERNAL_WIDTH - total_width) // 2
-        y = INTERNAL_HEIGHT - 30
-        quick_items = ["knife", "flashlight", "bandage", "key", self.equipped_item]
-        for idx in range(5):
-            rect = pygame.Rect(start_x + idx * 34, y, 30, 18)
-            self.draw_panel(rect, (30, 38, 50), (88, 106, 126))
-            item = quick_items[idx]
-            if item in self.sprite_cache and self.sprite_cache[item] is not None:
-                icon = pygame.transform.scale(self.sprite_cache[item], (10, 10))
-                self.canvas.blit(icon, (rect.x + 2, rect.y + 4))
-            num_text = str(idx + 1)
-            num_w = self.small_font.size(num_text)[0]
-            self.blit_pixel_text_on(self.canvas, num_text, rect.right - num_w - 2, rect.y + 1, self.small_font, (198, 213, 228))
 
     def draw_pickup_icon(
         self,

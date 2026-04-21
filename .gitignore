@@ -38,6 +38,7 @@ htmlcov/
 *.log
 *.pid
 *.sqlite3
+save.json
 
 # Environment files
 .env
@@ -47,6 +48,7 @@ htmlcov/
 .vscode/
 .idea/
 *.code-workspace
+/.claude/
 
 # OS files
 .DS_Store
