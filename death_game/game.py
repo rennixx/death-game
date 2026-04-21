@@ -3394,6 +3394,7 @@ class Game:
             "bandage": "bandage",
             "flashlight": "flashlight",
             "knife": "door",
+            "keycard": "key",
         }.get(pickup.name, "bandage")
         self.draw_pickup_icon(draw_rect, pickup.name, PALETTE[color_name], self.sprite_cache.get(pickup.name))
         glint_phase = (self.time_alive * 2.1 + base_rect.x * 0.03 + base_rect.y * 0.05) % 2.2
@@ -3599,6 +3600,26 @@ class Game:
                 if item in self.sprite_cache and self.sprite_cache[item] is not None:
                     sprite = pygame.transform.scale(self.sprite_cache[item], (14, 14))
                     self.canvas.blit(sprite, (sx + (slot_rect.width - 14) // 2, sy + 4))
+                elif item == "knife":
+                    ix = sx + (slot_rect.width - 14) // 2
+                    iy = sy + 3
+                    handle_col = (139, 90, 43)
+                    self.canvas.fill(handle_col, pygame.Rect(ix + 3, iy + 8, 5, 5))
+                    self.canvas.fill(shift_color(handle_col, 22), pygame.Rect(ix + 3, iy + 8, 2, 3))
+                    self.canvas.fill((170, 160, 140), pygame.Rect(ix + 2, iy + 7, 7, 1))
+                    blade = (210, 214, 220)
+                    self.canvas.fill(blade, pygame.Rect(ix + 4, iy + 2, 5, 5))
+                    self.canvas.fill(blade, pygame.Rect(ix + 5, iy, 4, 2))
+                    self.canvas.fill(shift_color(blade, 18), pygame.Rect(ix + 5, iy + 2, 2, 3))
+                    self.canvas.fill((235, 238, 242), pygame.Rect(ix + 8, iy + 2, 1, 3))
+                elif item == "keycard":
+                    ix = sx + (slot_rect.width - 14) // 2
+                    iy = sy + 3
+                    self.canvas.fill(PALETTE["key"], pygame.Rect(ix + 2, iy + 2, 10, 8))
+                    self.canvas.fill((200, 200, 195), pygame.Rect(ix + 3, iy + 3, 3, 3))
+                    self.canvas.fill(shift_color(PALETTE["key"], -50), pygame.Rect(ix + 2, iy + 8, 10, 2))
+                    self.canvas.fill((220, 220, 215), pygame.Rect(ix + 8, iy + 3, 2, 1))
+                    self.canvas.fill((220, 220, 215), pygame.Rect(ix + 8, iy + 6, 2, 1))
                 self.blit_pixel_text_centered(item.upper(), pygame.Rect(sx + 2, sy + 20, slot_rect.width - 4, 9), self.inventory_small_font)
                 if item == "bandage":
                     self.blit_pixel_text(str(self.bandages), sx + 34, sy + 1, self.inventory_small_font)
@@ -3892,6 +3913,16 @@ class Game:
             self.canvas.fill(shift_color(blade, 20), pygame.Rect(rect.x + 3, rect.y + 1, 1, 1))
             # Edge highlight
             self.canvas.fill((235, 238, 242), pygame.Rect(rect.x + 4, rect.y + 1, 1, 1))
+        elif name == "keycard":
+            # Card body
+            self.canvas.fill(color, pygame.Rect(rect.x + 1, rect.y + 1, 6, 5))
+            # Chip
+            self.canvas.fill((200, 200, 195), pygame.Rect(rect.x + 2, rect.y + 2, 2, 2))
+            # Stripe
+            self.canvas.fill(shift_color(color, -40), pygame.Rect(rect.x + 1, rect.y + 5, 6, 1))
+            # Contact dots
+            self.canvas.fill((220, 220, 215), pygame.Rect(rect.x + 5, rect.y + 2, 1, 1))
+            self.canvas.fill((220, 220, 215), pygame.Rect(rect.x + 5, rect.y + 4, 1, 1))
         else:
             self.canvas.fill(color, pygame.Rect(rect.x + 2, rect.y + 2, 5, 4))
             self.canvas.fill((240, 240, 240), pygame.Rect(rect.x + 4, rect.y + 3, 1, 2))
