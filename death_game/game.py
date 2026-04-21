@@ -172,9 +172,63 @@ AREA_MAPS = {
         "#..................#",
         "####################",
     ],
+    "l2_floor4": [
+        "##################################################",
+        "#P...............................................#",
+        "#..B.............................................#",
+        "#.......................................###.####.#",
+        "####.#########.####.####.##########.#.......#....#",
+        "#....................#..........#...#.......#....#",
+        "#....................#..........#...#.......#....#",
+        "#.....L....L....L.....#....L....#....L....L....L.#",
+        "#....................#..........#...#............#",
+        "#..........W.........#..........#...#.......W....#",
+        "#....................#..........#...#............Z",
+        "##################################################",
+    ],
+    "l2_floor3": [
+        "###########################################################",
+        "#P........................................................#",
+        "#.........................................................#",
+        "#.......#.....#.........#.....#.........#.....#...........#",
+        "#.......#.....#.........#.....#.........#.....#...........#",
+        "#.......#.1...#.........#.1...#.........#...K.#...........#",
+        "#.......#.....#.........#.....#.........#.....#...........#",
+        "#.........................................................#",
+        "#.........................................................#",
+        "#.......1.....1.........1.....1..........1.....1..........#",
+        "#.........................................................Y",
+        "###########################################################",
+    ],
+    "l2_floor2": [
+        "##################################################",
+        "#P...............................................#",
+        "#................................................#",
+        "#.......#.....#.........#.....#........#.....#...#",
+        "#.......#.2...#.........#.....#........#.2...#...#",
+        "#.......#.....#.........#.....#........#.....#...#",
+        "#................................................#",
+        "#..T..T..A...T..T..C..A..T...T..T..A..T..C.T.....#",
+        "#................................................#",
+        "#.......2.....2.........2.....2........2.....2..=#",
+        "##################################################",
+    ],
+    "l2_floor1": [
+        "#######################################################",
+        "#P....................................................#",
+        "#.....................................................#",
+        "#.....................................................#",
+        "#.....................................................#",
+        "#...........................3.........................#",
+        "#.....................................................#",
+        "#.....................................................#",
+        "#.....................................................#",
+        "#.....................................................Z",
+        "#######################################################",
+    ],
 }
 
-AREA_FLOW_ORDER = ["area1", "hub", "storage", "medbay", "maintenance", "area2", "area3", "final"]
+AREA_FLOW_ORDER = ["area1", "hub", "storage", "medbay", "maintenance", "area2", "area3", "final", "l2_floor4", "l2_floor3", "l2_floor2", "l2_floor1"]
 AREA_META = {
     "area1": ("B1-01", "RESIDENTIAL UNIT", "UNIT"),
     "hub": ("B1-02", "MAIN HALLWAY", "HALL"),
@@ -184,6 +238,10 @@ AREA_META = {
     "area2": ("B1-06", "SECURITY CHECKPOINT", "SEC"),
     "area3": ("B1-07", "ELEVATOR LOBBY", "LIFT"),
     "final": ("B1-08", "EXIT HALL", "EXIT"),
+    "l2_floor4": ("B2-04", "FLICKER HALLWAY", "FL4"),
+    "l2_floor3": ("B2-03", "DARK WARD", "DKW"),
+    "l2_floor2": ("B2-02", "TRAP FLOOR", "TRP"),
+    "l2_floor1": ("B2-01", "BASEMENT SPRINT", "BSP"),
 }
 
 AREA_THEMES: dict[str, dict[str, tuple[int, int, int]]] = {
@@ -283,6 +341,54 @@ AREA_THEMES: dict[str, dict[str, tuple[int, int, int]]] = {
         "safe": (120, 194, 168),
         "ambient": (44, 16, 20),
     },
+    "l2_floor4": {
+        "floor": (44, 42, 40),
+        "floor_alt": (54, 50, 46),
+        "floor_dark": (28, 26, 24),
+        "wall": (68, 64, 58),
+        "wall_hi": (108, 100, 90),
+        "wall_lo": (34, 32, 28),
+        "accent": (188, 162, 112),
+        "danger": (178, 74, 68),
+        "safe": (96, 164, 132),
+        "ambient": (38, 24, 18),
+    },
+    "l2_floor3": {
+        "floor": (18, 18, 22),
+        "floor_alt": (24, 24, 28),
+        "floor_dark": (8, 8, 12),
+        "wall": (32, 32, 38),
+        "wall_hi": (52, 52, 60),
+        "wall_lo": (14, 14, 18),
+        "accent": (62, 82, 112),
+        "danger": (164, 58, 58),
+        "safe": (56, 112, 96),
+        "ambient": (2, 2, 4),
+    },
+    "l2_floor2": {
+        "floor": (52, 50, 44),
+        "floor_alt": (60, 56, 50),
+        "floor_dark": (32, 30, 26),
+        "wall": (78, 74, 66),
+        "wall_hi": (122, 114, 98),
+        "wall_lo": (38, 36, 32),
+        "accent": (196, 148, 62),
+        "danger": (192, 82, 62),
+        "safe": (86, 168, 138),
+        "ambient": (28, 24, 16),
+    },
+    "l2_floor1": {
+        "floor": (28, 34, 42),
+        "floor_alt": (36, 42, 50),
+        "floor_dark": (14, 18, 24),
+        "wall": (48, 56, 68),
+        "wall_hi": (78, 88, 102),
+        "wall_lo": (22, 28, 34),
+        "accent": (104, 148, 188),
+        "danger": (188, 68, 72),
+        "safe": (108, 186, 162),
+        "ambient": (14, 22, 34),
+    },
 }
 
 AREA_DOORS: dict[str, list[dict[str, object]]] = {
@@ -338,6 +444,72 @@ AREA_DOORS: dict[str, list[dict[str, object]]] = {
         },
     ],
     "final": [],
+    "l2_floor4": [
+        {
+            "id": "ST-04",
+            "tile": (49, 10),
+            "to": "l2_floor3",
+            "spawn": (1, 5),
+            "label": "B2-03 DARK WARD",
+            "requirement": "none",
+        },
+    ],
+    "l2_floor3": [
+        {
+            "id": "ST-04R",
+            "tile": (1, 5),
+            "to": "l2_floor4",
+            "spawn": (48, 9),
+            "label": "B2-04 FLICKER HALL",
+            "requirement": "none",
+        },
+        {
+            "id": "KY-01",
+            "tile": (58, 10),
+            "to": "l2_floor2",
+            "spawn": (1, 5),
+            "label": "B2-02 TRAP FLOOR",
+            "requirement": "keycard",
+            "locked": "Stairwell locked. Need keycard",
+        },
+    ],
+    "l2_floor2": [
+        {
+            "id": "KY-01R",
+            "tile": (1, 5),
+            "to": "l2_floor3",
+            "spawn": (57, 9),
+            "label": "B2-03 DARK WARD",
+            "requirement": "none",
+        },
+        {
+            "id": "GR-01",
+            "tile": (48, 9),
+            "to": "l2_floor1",
+            "spawn": (1, 5),
+            "label": "B2-01 BASEMENT SPRINT",
+            "requirement": "knife_pry",
+            "locked": "Rusted grate. Need knife to pry open",
+        },
+    ],
+    "l2_floor1": [
+        {
+            "id": "GR-01R",
+            "tile": (1, 5),
+            "to": "l2_floor2",
+            "spawn": (47, 9),
+            "label": "B2-02 TRAP FLOOR",
+            "requirement": "none",
+        },
+        {
+            "id": "EXIT-L2",
+            "tile": (54, 9),
+            "to": "__level2_complete__",
+            "spawn": (0, 0),
+            "label": "LEVEL 2 EXIT",
+            "requirement": "none",
+        },
+    ],
 }
 
 
@@ -360,10 +532,21 @@ class Wolf:
     alert: bool = False
     facing_x: float = 1.0
     facing_y: float = 0.0
+    subtype: str = "standard"
+    hp: int = 1
+    max_hp: int = 1
+    size: int = 12
+    patrol_origin_x: float = 0.0
+    patrol_origin_y: float = 0.0
+    stun_timer: float = 0.0
+    strafe_dir: float = 1.0
+    charge_timer: float = 0.0
+    lunge_timer: float = 0.0
+    lose_interest_timer: float = 0.0
 
     @property
     def rect(self) -> pygame.Rect:
-        return pygame.Rect(int(self.x), int(self.y), 12, 12)
+        return pygame.Rect(int(self.x), int(self.y), self.size, self.size)
 
 
 @dataclass
@@ -383,6 +566,26 @@ class LaserBeam:
     on_time: float
     off_time: float
     phase: float
+
+
+@dataclass
+class Hazard:
+    kind: str
+    tile_x: int
+    tile_y: int
+    rect: pygame.Rect
+    triggered: bool = False
+    active: bool = True
+    crumble_timer: float = 0.0
+
+
+@dataclass
+class FlickerLight:
+    tile_x: int
+    tile_y: int
+    phase: float
+    on_duration: float
+    off_duration: float
 
 
 class SoundManager:
@@ -585,6 +788,7 @@ class Game:
         "flashlight": "Illuminates dark areas. Press Q to toggle.",
         "bandage": "Restores 25 HP. Press H to use.",
         "key": "Opens locked doors. Press E near a door.",
+        "keycard": "Electronic keycard. Unlocks secured stairwells.",
     }
 
     def __init__(self) -> None:
@@ -618,6 +822,8 @@ class Game:
         self.furniture: dict[tuple[int, int], str] = {}
         self.lasers: list[LaserBeam] = []
         self.current_doors: list[dict[str, object]] = []
+        self.hazards: list[Hazard] = []
+        self.flicker_lights: list[FlickerLight] = []
 
         self.player = pygame.Rect(16, 16, 10, 12)
         self.player_speed = 70.0
@@ -645,7 +851,7 @@ class Game:
 
         self.inventory_selected = 0
         self.inventory_cols = 4
-        self.inventory_rows = 2
+        self.inventory_rows = 3
         self.equipped_item = "knife"
         self.show_labels = True
 
@@ -703,6 +909,9 @@ class Game:
         self.choice_result = ""
         self.final_exit_unlocked = False
         self.time_alive = 0.0
+        self.has_keycard = False
+        self.backpack_collected = False
+        self.l2_boss_defeated = False
 
         self.checkpoints: dict[str, tuple[int, int]] = {}
         self.sound = SoundManager()
@@ -1103,6 +1312,9 @@ class Game:
             "area2_cleared": self.area2_cleared,
             "dilemma_chosen": getattr(self, "choice_result", None),
             "final_exit_unlocked": self.final_exit_unlocked,
+            "has_keycard": self.has_keycard,
+            "backpack_collected": self.backpack_collected,
+            "l2_boss_defeated": self.l2_boss_defeated,
             "hints_shown": list(self.hints_shown),
         }
         save_path = Path(__file__).resolve().parents[1] / "save.json"
@@ -1141,6 +1353,9 @@ class Game:
             elif choice == "arm":
                 # Attack speed -70% means attack interval is about 3.33x longer.
                 self.attack_speed_mult = 10.0 / 3.0
+        self.has_keycard = data.get("has_keycard", False)
+        self.backpack_collected = data.get("backpack_collected", False)
+        self.l2_boss_defeated = data.get("l2_boss_defeated", False)
         return True
 
     def try_save_at_terminal(self) -> None:
@@ -1210,6 +1425,8 @@ class Game:
         self.dark_tiles.clear()
         self.furniture.clear()
         self.lasers.clear()
+        self.hazards.clear()
+        self.flicker_lights.clear()
         self.lasers_disabled_timer = 0.0
         self.breaker_tile = (0, 0)
         self.transition_tile = (0, 0)
@@ -1255,10 +1472,41 @@ class Game:
                     self.pickups.append(ItemPickup("knife", x, y))
                 elif cell == "W":
                     self.wolves.append(Wolf(x * TILE_SIZE + 2, y * TILE_SIZE + 2))
+                elif cell == "1":
+                    w = Wolf(x * TILE_SIZE + 2, y * TILE_SIZE + 2, subtype="stalker")
+                    self.wolves.append(w)
+                elif cell == "2":
+                    w = Wolf(x * TILE_SIZE + 2, y * TILE_SIZE + 2, subtype="hunter",
+                             patrol_origin_x=x * TILE_SIZE + 2, patrol_origin_y=y * TILE_SIZE + 2)
+                    self.wolves.append(w)
+                elif cell == "3":
+                    w = Wolf(x * TILE_SIZE - 4, y * TILE_SIZE - 4, subtype="alpha",
+                             hp=5, max_hp=5, size=20)
+                    self.wolves.append(w)
                 elif cell == "X":
                     self.final_exit_tile = (x, y)
                 elif cell == "S":
                     self.save_tiles.append((x, y))
+                elif cell == "B":
+                    self.furniture[(x, y)] = "backpack"
+                elif cell == "K":
+                    self.pickups.append(ItemPickup("keycard", x, y))
+                elif cell == "T":
+                    self.hazards.append(Hazard("tripwire", x, y,
+                                               pygame.Rect(x * TILE_SIZE + 4, y * TILE_SIZE, 8, TILE_SIZE)))
+                elif cell == "A":
+                    self.hazards.append(Hazard("alarm", x, y,
+                                               pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)))
+                elif cell == "C":
+                    self.hazards.append(Hazard("crumble", x, y,
+                                               pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)))
+                elif cell == "L":
+                    self.flicker_lights.append(FlickerLight(
+                        x, y,
+                        random.uniform(0, 5.0),
+                        random.uniform(1.5, 4.0),
+                        random.uniform(0.1, 0.6),
+                    ))
 
         self.checkpoints[area_id] = spawn
         spawn_tile = spawn_override if spawn_override is not None else spawn
@@ -1274,8 +1522,15 @@ class Game:
         if area_id == "final":
             self.final_exit_unlocked = False
 
+        if area_id == "l2_floor3":
+            for fy, row in enumerate(self.current_map):
+                for fx, cell in enumerate(row):
+                    if cell != "#":
+                        self.dark_tiles.add((fx, fy))
+
         zone_code, zone_name, _ = self.get_area_meta(area_id)
-        self.zone_card_title = f"LEVEL 1  |  {zone_code}"
+        level_prefix = "LEVEL 2" if area_id.startswith("l2_") else "LEVEL 1"
+        self.zone_card_title = f"{level_prefix}  |  {zone_code}"
         self.zone_card_subtitle = zone_name
         self.zone_card_timer = 2.2
 
@@ -1308,6 +1563,10 @@ class Game:
             return not self.area2_cleared
         if requirement == "elevator_ready":
             return not self.elevator_choice_made
+        if requirement == "keycard":
+            return not self.has_keycard
+        if requirement == "knife_pry":
+            return not self.has_knife
         return False
 
     def get_door_prompt(self, door: dict[str, object]) -> str:
@@ -1320,6 +1579,10 @@ class Game:
             return str(door.get("locked", "Door sealed"))
         if requirement == "elevator_ready" and not self.elevator_choice_made:
             return str(door.get("locked", "Terminal authorization required"))
+        if requirement == "keycard" and not self.has_keycard:
+            return str(door.get("locked", "Need keycard"))
+        if requirement == "knife_pry" and not self.has_knife:
+            return str(door.get("locked", "Need knife"))
         return f"Press E: {door_id} -> {label}"
 
     def interact_door(self, door: dict[str, object]) -> bool:
@@ -1343,6 +1606,27 @@ class Game:
         if requirement == "elevator_ready" and not self.elevator_choice_made:
             self.message = str(door.get("locked", "Terminal authorization required"))
             self.message_timer = 1.2
+            return True
+
+        if requirement == "keycard" and not self.has_keycard:
+            self.message = str(door.get("locked", "Need keycard"))
+            self.message_timer = 1.2
+            return True
+
+        if requirement == "knife_pry" and not self.has_knife:
+            self.message = str(door.get("locked", "Need knife"))
+            self.message_timer = 1.2
+            return True
+
+        target_area = str(door.get("to", self.current_area))
+        if target_area == "__level2_complete__":
+            if not self.l2_boss_defeated:
+                self.message = "Defeat the Alpha Wolf first"
+                self.message_timer = 1.2
+                return True
+            self.state = "won"
+            self.message = "Level 2 complete. You escaped the descent."
+            self.message_timer = 1000.0
             return True
 
         target_area = str(door.get("to", self.current_area))
@@ -1437,6 +1721,23 @@ class Game:
                 self.objective = "Use elevator terminal and choose"
             else:
                 self.objective = "Ride elevator to exit hall"
+        elif self.current_area == "l2_floor4":
+            if not self.backpack_collected:
+                self.objective = "Collect the backpack"
+            else:
+                self.objective = "Navigate hallway to stairwell"
+        elif self.current_area == "l2_floor3":
+            if not self.has_keycard:
+                self.objective = "Find keycard in dark rooms"
+            else:
+                self.objective = "Unlock stairwell with keycard"
+        elif self.current_area == "l2_floor2":
+            self.objective = "Avoid traps and wolves. Reach the grate"
+        elif self.current_area == "l2_floor1":
+            if not self.l2_boss_defeated:
+                self.objective = "Defeat the Alpha Wolf"
+            else:
+                self.objective = "Reach the steel door"
         else:
             if not self.final_exit_unlocked:
                 self.objective = "Clear hostiles in exit hall"
@@ -1562,8 +1863,26 @@ class Game:
                     self.__init__()
                     continue
                 if self.state == "won" and event.key:
-                    pygame.quit()
-                    sys.exit(0)
+                    if self.current_area == "final":
+                        self.health = 100
+                        self.battery = 50
+                        self.bandages = 2
+                        self.current_area = "l2_floor4"
+                        self.load_area("l2_floor4")
+                        self.state = "explore"
+                        self.intro_title = "LEVEL 2: DESCENT"
+                        self.intro_lines = [
+                            "You escaped B1. But the building goes deeper.",
+                            "WASD Move   E Interact",
+                            "Q Flashlight   SPACE Attack",
+                            "TAB Inventory   F Equip",
+                        ]
+                        self.intro_hint = "Press ENTER to start"
+                        self.intro_timer = 8.5
+                    else:
+                        pygame.quit()
+                        sys.exit(0)
+                    continue
 
                 if self.intro_timer > 0 and self.state == "explore":
                     if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
@@ -1592,11 +1911,11 @@ class Game:
                     if event.key in (pygame.K_LEFT, pygame.K_a):
                         self.inventory_selected = max(0, self.inventory_selected - 1)
                     elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        self.inventory_selected = min(7, self.inventory_selected + 1)
+                        self.inventory_selected = min(11, self.inventory_selected + 1)
                     elif event.key in (pygame.K_UP, pygame.K_w):
                         self.inventory_selected = max(0, self.inventory_selected - self.inventory_cols)
                     elif event.key in (pygame.K_DOWN, pygame.K_s):
-                        self.inventory_selected = min(7, self.inventory_selected + self.inventory_cols)
+                        self.inventory_selected = min(11, self.inventory_selected + self.inventory_cols)
                     elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                         self.inventory_use_selected()
                     elif event.key == pygame.K_f:
@@ -1700,6 +2019,7 @@ class Game:
         self.update_wolves(dt)
         self.update_flashlight(dt)
         self.update_area2_hazards()
+        self.update_hazards(dt)
         self.check_contextual_hints()
 
         if self.active_hint_timer > 0:
@@ -1777,6 +2097,9 @@ class Game:
                     self.has_knife = True
                     self.equipped_item = "knife"
                     self.message = "Knife acquired"
+                elif pickup.name == "keycard":
+                    self.has_keycard = True
+                    self.message = "Keycard acquired"
 
                 self.set_objective_for_area()
                 self.message_timer = 1.5
@@ -1797,6 +2120,60 @@ class Game:
 
             if self.health <= 0:
                 self.respawn_at_checkpoint()
+
+    def update_hazards(self, dt: float) -> None:
+        for hazard in self.hazards:
+            if not hazard.active:
+                continue
+
+            if hazard.kind == "tripwire":
+                if not hazard.triggered and self.player.colliderect(hazard.rect):
+                    hazard.triggered = True
+                    hazard.active = False
+                    if self.hit_cooldown <= 0:
+                        self.health = max(0, self.health - 10)
+                        self.damage_flash = 0.16
+                        self.hit_cooldown = 0.5
+                        self.sound.play("damage")
+                        self.trigger_shake(2.0, 0.12)
+                        self.emit_particles(hazard.tile_x * TILE_SIZE + 8, hazard.tile_y * TILE_SIZE + 8, 8, PALETTE["trap_on"])
+                        self.message = "Tripwire!"
+                        self.message_timer = 1.0
+                        if self.health <= 0:
+                            self.respawn_at_checkpoint()
+
+            elif hazard.kind == "alarm":
+                if not hazard.triggered and self.player.colliderect(hazard.rect):
+                    hazard.triggered = True
+                    hazard.active = False
+                    for wolf in self.wolves:
+                        if wolf.alive:
+                            wolf.alert = True
+                    self.sound.play("damage")
+                    self.message = "Alarm triggered!"
+                    self.message_timer = 1.5
+
+            elif hazard.kind == "crumble":
+                if not hazard.triggered and self.player.colliderect(hazard.rect):
+                    hazard.triggered = True
+                    hazard.crumble_timer = 0.8
+                    self.message = "Floor cracking!"
+                    self.message_timer = 0.8
+
+                if hazard.triggered and hazard.active:
+                    hazard.crumble_timer -= dt
+                    if hazard.crumble_timer <= 0:
+                        hazard.active = False
+                        pit_rect = pygame.Rect(hazard.tile_x * TILE_SIZE, hazard.tile_y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                        self.walls.append(pit_rect)
+                        if self.player.colliderect(pit_rect):
+                            self.health = max(0, self.health - 20)
+                            self.damage_flash = 0.16
+                            self.hit_cooldown = 0.5
+                            self.sound.play("damage")
+                            self.trigger_shake(3.0, 0.2)
+                            if self.health <= 0:
+                                self.respawn_at_checkpoint()
 
     def try_interact(self) -> None:
         px = self.player.centerx // TILE_SIZE
@@ -1892,12 +2269,31 @@ class Game:
             if self.final_exit_tile != (0, 0) and is_near(self.final_exit_tile):
                 if self.final_exit_unlocked:
                     self.state = "won"
-                    self.message = "You escaped Level 1."
+                    self.message = "Level 1 complete!"
                     self.message_timer = 1000.0
                 else:
                     self.message = "Defeat all enemies first"
                     self.message_timer = 1.1
                 return
+
+        elif self.current_area == "l2_floor4":
+            for (tx, ty), kind in self.furniture.items():
+                if abs(px - tx) + abs(py - ty) > 1:
+                    continue
+                if kind == "backpack":
+                    if not self.backpack_collected:
+                        self.backpack_collected = True
+                        self.has_flashlight = True
+                        self.has_knife = True
+                        self.equipped_item = "knife"
+                        self.bandages += 2
+                        self.battery = 75
+                        self.message = "Found backpack: flashlight, knife, 2 bandages"
+                        self.set_objective_for_area()
+                    else:
+                        self.message = "Empty backpack"
+                    self.message_timer = 2.0
+                    return
 
         self.try_save_at_terminal()
 
@@ -1936,9 +2332,20 @@ class Game:
             if not wolf.alive:
                 continue
 
-            wolf_vec = pygame.Vector2(wolf.x + 6, wolf.y + 6)
+            half = wolf.size // 2
+            wolf_vec = pygame.Vector2(wolf.x + half, wolf.y + half)
             to_player = player_center - wolf_vec
             dist = to_player.length()
+
+            if wolf.subtype == "stalker":
+                self._update_stalker_wolf(wolf, dt, player_center, wolf_vec, to_player, dist)
+                continue
+            elif wolf.subtype == "hunter":
+                self._update_hunter_wolf(wolf, dt, player_center, wolf_vec, to_player, dist)
+                continue
+            elif wolf.subtype == "alpha":
+                self._update_alpha_wolf(wolf, dt, player_center, wolf_vec, to_player, dist)
+                continue
 
             was_alert = wolf.alert
             wolf.alert = dist < 64
@@ -1967,6 +2374,170 @@ class Game:
                     if self.health <= 0:
                         self.respawn_at_checkpoint()
 
+    def _update_stalker_wolf(self, wolf: Wolf, dt: float, player_center: pygame.Vector2,
+                              wolf_vec: pygame.Vector2, to_player: pygame.Vector2, dist: float) -> None:
+        beam_hitting = False
+        if self.flashlight_on and self.battery > 0:
+            flashlight_radius = self.get_flashlight_radius()
+            if dist <= flashlight_radius and dist > 0:
+                to_wolf_norm = to_player.normalize()
+                dot = self.last_dir.dot(to_wolf_norm)
+                if dot > 0.707:
+                    beam_hitting = True
+
+        if beam_hitting:
+            wolf.stun_timer = 0.5
+            if dist > 0:
+                heading = to_player.normalize()
+                wolf.facing_x = heading.x
+                wolf.facing_y = heading.y
+                perp = pygame.Vector2(-heading.y, heading.x)
+                strafe_move = perp * wolf.strafe_dir * 4.2 * dt
+                wolf.x += strafe_move.x
+                wolf.y += strafe_move.y
+                if random.random() < 0.02:
+                    wolf.strafe_dir *= -1
+        else:
+            if wolf.stun_timer > 0:
+                wolf.stun_timer -= dt
+                return
+            if dist > 0:
+                heading = to_player.normalize()
+                wolf.facing_x = heading.x
+                wolf.facing_y = heading.y
+                move = heading * 63.0 * dt
+                wolf.x += move.x
+                wolf.y += move.y
+
+        if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
+            self.health = max(0, self.health - 12)
+            self.sound.play("damage")
+            self.damage_flash = 0.16
+            self.hit_cooldown = 0.5
+            self.trigger_shake(2.0, 0.15)
+            self.emit_particles(self.player.centerx, self.player.centery, 10, PALETTE["health_low"])
+            if self.health <= 0:
+                self.respawn_at_checkpoint()
+
+    def _update_hunter_wolf(self, wolf: Wolf, dt: float, player_center: pygame.Vector2,
+                             wolf_vec: pygame.Vector2, to_player: pygame.Vector2, dist: float) -> None:
+        facing = pygame.Vector2(wolf.facing_x, wolf.facing_y)
+        if facing.length_squared() == 0:
+            facing = pygame.Vector2(1, 0)
+        facing = facing.normalize()
+
+        half_angle = math.pi / 3
+        cone_range = 64.0
+
+        player_in_cone = False
+        if dist <= cone_range and dist > 0:
+            to_player_norm = to_player.normalize()
+            dot = facing.dot(to_player_norm)
+            if dot > math.cos(half_angle):
+                player_in_cone = self._has_line_of_sight(wolf_vec, player_center)
+
+        if player_in_cone:
+            wolf.alert = True
+            wolf.lose_interest_timer = 0.0
+            if dist > 0:
+                heading = to_player.normalize()
+                wolf.facing_x = heading.x
+                wolf.facing_y = heading.y
+                move = heading * 75.0 * dt
+                wolf.x += move.x
+                wolf.y += move.y
+        else:
+            if wolf.alert:
+                wolf.lose_interest_timer += dt
+                if wolf.lose_interest_timer > 2.0:
+                    wolf.alert = False
+                    wolf.lose_interest_timer = 0.0
+                elif dist > 0:
+                    heading = to_player.normalize()
+                    wolf.facing_x = heading.x
+                    wolf.facing_y = heading.y
+                    move = heading * 75.0 * dt
+                    wolf.x += move.x
+                    wolf.y += move.y
+            else:
+                patrol_speed = 20.0
+                origin = pygame.Vector2(wolf.patrol_origin_x, wolf.patrol_origin_y)
+                offset = wolf_vec.x - origin.x
+                if abs(offset) > 40:
+                    facing.x = -1 if offset > 0 else 1
+                    facing.y = 0
+                    wolf.facing_x = facing.x
+                    wolf.facing_y = 0
+                wolf.x += wolf.facing_x * patrol_speed * dt
+
+        if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
+            self.health = max(0, self.health - 12)
+            self.sound.play("damage")
+            self.damage_flash = 0.16
+            self.hit_cooldown = 0.5
+            self.trigger_shake(2.0, 0.15)
+            self.emit_particles(self.player.centerx, self.player.centery, 10, PALETTE["health_low"])
+            if self.health <= 0:
+                self.respawn_at_checkpoint()
+
+    def _has_line_of_sight(self, from_pos: pygame.Vector2, to_pos: pygame.Vector2) -> bool:
+        delta = to_pos - from_pos
+        dist = delta.length()
+        if dist == 0:
+            return True
+        steps = int(dist / 8)
+        direction = delta.normalize()
+        for i in range(1, steps):
+            check = from_pos + direction * (i * 8)
+            for wall in self.walls:
+                if wall.collidepoint(int(check.x), int(check.y)):
+                    return False
+        return True
+
+    def _update_alpha_wolf(self, wolf: Wolf, dt: float, player_center: pygame.Vector2,
+                            wolf_vec: pygame.Vector2, to_player: pygame.Vector2, dist: float) -> None:
+        half = wolf.size // 2
+        if wolf.charge_timer > 0:
+            wolf.charge_timer -= dt
+
+        if dist < 80 and not wolf.alert:
+            wolf.alert = True
+            self.sound.play("growl")
+
+        if wolf.alert:
+            if wolf.lunge_timer > 0:
+                wolf.lunge_timer -= dt
+                if dist > 0:
+                    heading = to_player.normalize()
+                    wolf.facing_x = heading.x
+                    wolf.facing_y = heading.y
+                    move = heading * 120.0 * dt
+                    wolf.x += move.x
+                    wolf.y += move.y
+            else:
+                if dist > 0:
+                    heading = to_player.normalize()
+                    wolf.facing_x = heading.x
+                    wolf.facing_y = heading.y
+                    move = heading * 28.0 * dt
+                    wolf.x += move.x
+                    wolf.y += move.y
+
+                if dist < 24 and wolf.charge_timer <= 0:
+                    wolf.lunge_timer = 0.3
+                    wolf.charge_timer = 1.5
+
+        if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
+            damage = 20 if wolf.lunge_timer > 0 else 12
+            self.health = max(0, self.health - damage)
+            self.sound.play("damage")
+            self.damage_flash = 0.16
+            self.hit_cooldown = 0.5
+            self.trigger_shake(3.0, 0.2)
+            self.emit_particles(self.player.centerx, self.player.centery, 10, PALETTE["health_low"])
+            if self.health <= 0:
+                self.respawn_at_checkpoint()
+
     def attack(self) -> None:
         if not self.has_knife:
             self.message = "Need a weapon first"
@@ -1994,12 +2565,23 @@ class Game:
         hit_any = False
         for wolf in self.wolves:
             if wolf.alive and attack_rect.colliderect(wolf.rect):
-                wolf.alive = False
+                if wolf.subtype == "alpha":
+                    wolf.hp -= 1
+                    if wolf.hp <= 0:
+                        wolf.alive = False
+                        self.l2_boss_defeated = True
+                        self.message = "Alpha Wolf defeated!"
+                    else:
+                        self.message = f"Alpha Wolf hit ({wolf.hp}/{wolf.max_hp})"
+                    self.trigger_shake(1.8, 0.12)
+                    self.emit_particles(wolf.rect.centerx, wolf.rect.centery, 12, PALETTE["wolf_alert"])
+                else:
+                    wolf.alive = False
+                    self.message = "Wolf neutralized"
+                    self.trigger_shake(1.8, 0.12)
+                    self.emit_particles(wolf.rect.centerx, wolf.rect.centery, 12, PALETTE["wolf_alert"])
                 hit_any = True
-                self.message = "Wolf neutralized"
                 self.message_timer = 0.9
-                self.trigger_shake(1.8, 0.12)
-                self.emit_particles(wolf.rect.centerx, wolf.rect.centery, 12, PALETTE["wolf_alert"])
 
         slash_x = self.player.centerx + self.attack_dir.x * 10
         slash_y = self.player.centery + self.attack_dir.y * 10
@@ -2025,11 +2607,12 @@ class Game:
         self.message_timer = 1.0
 
     def get_inventory_slots(self) -> list[str | None]:
-        slots: list[str | None] = [None] * 8
+        slots: list[str | None] = [None] * 12
         slots[0] = "knife" if self.has_knife else None
         slots[1] = "flashlight" if self.has_flashlight else None
         slots[2] = "bandage" if self.bandages > 0 else None
         slots[3] = "key" if self.has_key else None
+        slots[4] = "keycard" if self.has_keycard else None
         return slots
 
     def inventory_use_selected(self) -> None:
@@ -2046,6 +2629,10 @@ class Game:
             return
         if item == "key":
             self.message = "Key is used automatically at the door"
+            self.message_timer = 1.0
+            return
+        if item == "keycard":
+            self.message = "Keycard is used automatically at locked stairwells"
             self.message_timer = 1.0
             return
 
@@ -2860,12 +3447,18 @@ class Game:
         for tile in self.save_tiles:
             self.draw_terminal_tile(tile, True, theme, theme["safe"])
 
+        self.draw_hazards(theme)
+        self.draw_flicker_lights(theme)
+
     def draw_entities(self) -> None:
         if self.can_reveal_pickups():
             for pickup in self.pickups:
                 if not self.is_pickup_in_flashlight_range(pickup):
                     continue
                 self.draw_pickup_entity(pickup)
+
+        for wolf in self.wolves:
+            self.draw_vision_cone(wolf)
 
         for wolf in self.wolves:
             self.draw_wolf_sprite(wolf)
@@ -3287,6 +3880,76 @@ class Game:
             self.draw_centered_sprite(body, sprite, bob)
             if wolf.alert:
                 self.canvas.fill((84, 24, 24), pygame.Rect(body.x + 1, body.y + 11, 12, 1))
+
+        if wolf.subtype == "alpha" and wolf.alive:
+            bar_w = 24
+            bar_h = 3
+            x = int(wolf.x + wolf.size // 2 - bar_w // 2)
+            y = int(wolf.y - 6)
+            ratio = wolf.hp / wolf.max_hp
+            self.canvas.fill((40, 10, 10), pygame.Rect(x, y, bar_w, bar_h))
+            self.canvas.fill((199, 70, 70), pygame.Rect(x, y, int(bar_w * ratio), bar_h))
+
+    def draw_vision_cone(self, wolf: Wolf) -> None:
+        if wolf.subtype != "hunter" or not wolf.alive:
+            return
+        center = pygame.Vector2(wolf.x + wolf.size // 2, wolf.y + wolf.size // 2)
+        facing = pygame.Vector2(wolf.facing_x, wolf.facing_y)
+        if facing.length_squared() == 0:
+            facing = pygame.Vector2(1, 0)
+        facing = facing.normalize()
+        half_angle = math.pi / 6
+        cone_range = 64
+        perp = pygame.Vector2(-facing.y, facing.x)
+        tip_a = center + (facing * math.cos(half_angle) + perp * math.sin(half_angle)) * cone_range
+        tip_b = center + (facing * math.cos(half_angle) - perp * math.sin(half_angle)) * cone_range
+        cone_surf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+        color = (220, 80, 60, 40) if wolf.alert else (180, 220, 140, 25)
+        points = [(int(center.x), int(center.y)), (int(tip_a.x), int(tip_a.y)), (int(tip_b.x), int(tip_b.y))]
+        pygame.draw.polygon(cone_surf, color, points)
+        self.canvas.blit(cone_surf, (0, 0))
+
+    def draw_hazards(self, theme: dict[str, tuple[int, int, int]]) -> None:
+        for hazard in self.hazards:
+            x = hazard.tile_x * TILE_SIZE
+            y = hazard.tile_y * TILE_SIZE
+            if hazard.kind == "tripwire":
+                if not hazard.triggered:
+                    wire_color = shift_color(theme["accent"], -20)
+                    pygame.draw.line(self.canvas, wire_color, (x + 2, y + 8), (x + 14, y + 8), 1)
+                    self.canvas.fill(wire_color, pygame.Rect(x + 6, y + 6, 4, 4))
+            elif hazard.kind == "alarm":
+                if not hazard.triggered:
+                    color = theme["danger"] if int(self.time_alive * 3) % 2 == 0 else shift_color(theme["danger"], -40)
+                    self.canvas.fill((24, 24, 28), pygame.Rect(x + 4, y + 4, 8, 8))
+                    self.canvas.fill(color, pygame.Rect(x + 5, y + 5, 6, 6))
+            elif hazard.kind == "crumble":
+                if hazard.active:
+                    if hazard.triggered:
+                        crack_color = theme["danger"]
+                        for offset in (3, 7, 11):
+                            pygame.draw.line(self.canvas, crack_color,
+                                             (x + offset, y + 2), (x + offset + 2, y + 14), 1)
+                    else:
+                        alt = theme["floor_alt"]
+                        self.canvas.fill(alt, pygame.Rect(x, y, TILE_SIZE, TILE_SIZE))
+                        self.canvas.fill(shift_color(theme["floor"], -8), pygame.Rect(x + 2, y + 2, 6, 2))
+                        self.canvas.fill(shift_color(theme["floor"], -8), pygame.Rect(x + 9, y + 8, 5, 2))
+
+    def draw_flicker_lights(self, theme: dict[str, tuple[int, int, int]]) -> None:
+        for light in self.flicker_lights:
+            cycle = light.on_duration + light.off_duration
+            t = (self.time_alive + light.phase) % cycle
+            is_on = t < light.on_duration
+            cx = light.tile_x * TILE_SIZE + TILE_SIZE // 2
+            cy = light.tile_y * TILE_SIZE + TILE_SIZE // 2
+            if is_on:
+                glow = pygame.Surface((48, 48), pygame.SRCALPHA)
+                glow.fill((240, 220, 160, 30))
+                self.canvas.blit(glow, (cx - 24, cy - 24))
+                self.canvas.fill((240, 220, 160), pygame.Rect(cx - 1, cy - 3, 2, 2))
+            else:
+                self.canvas.fill((60, 55, 35), pygame.Rect(cx - 1, cy - 3, 2, 2))
 
     def draw_player_sprite(self) -> None:
         base = self.player
