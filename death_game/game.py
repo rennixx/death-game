@@ -8,6 +8,13 @@ import random
 import sys
 
 import pygame
+import json
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
 
 
 INTERNAL_WIDTH = 320
@@ -262,6 +269,92 @@ class LaserBeam:
     phase: float
 
 
+class SoundManager:
+    """Procedural audio using numpy. Gracefully degrades if numpy unavailable."""
+
+    def __init__(self) -> None:
+        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.enabled = HAS_NUMPY
+        if not self.enabled:
+            return
+        try:
+            pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
+            self._generate_all()
+        except pygame.error:
+            self.enabled = False
+
+    def _make_sound(self, samples: list[float]) -> pygame.mixer.Sound:
+        arr = np.array(samples, dtype=np.float64)
+        arr = np.clip(arr, -1.0, 1.0)
+        pcm = (arr * 32767).astype(np.int16)
+        # sndarray requires a 2D array matching mixer channels
+        channels = pygame.mixer.get_init()[2]
+        if channels > 1:
+            pcm = np.column_stack([pcm] * channels)
+        return pygame.sndarray.make_sound(pcm)
+
+    def _env(self, n: int, attack: float = 0.05, release: float = 0.3) -> list[float]:
+        t = np.linspace(0, 1, n)
+        env = np.ones(n)
+        att_samples = max(1, int(attack * n))
+        rel_samples = max(1, int(release * n))
+        env[:att_samples] = np.linspace(0, 1, att_samples)
+        env[-rel_samples:] = np.linspace(1, 0, rel_samples)
+        return env.tolist()
+
+    def _generate_all(self) -> None:
+        sr = 22050
+
+        # Footstep: 50ms noise burst
+        n = int(sr * 0.05)
+        noise = np.random.uniform(-0.3, 0.3, n).tolist()
+        self.sounds["footstep"] = self._make_sound([s * e for s, e in zip(noise, self._env(n, 0.1, 0.6))])
+
+        # Pickup: 200ms ascending sine 440->880Hz
+        n = int(sr * 0.2)
+        t = np.linspace(0, 0.2, n)
+        freq = np.linspace(440, 880, n)
+        wave = np.sin(2 * np.pi * freq * t) * 0.4
+        self.sounds["pickup"] = self._make_sound((wave * np.array(self._env(n, 0.05, 0.3))).tolist())
+
+        # Damage: 150ms low sine 80Hz + noise
+        n = int(sr * 0.15)
+        t = np.linspace(0, 0.15, n)
+        wave = (np.sin(2 * np.pi * 80 * t) * 0.5 + np.random.uniform(-0.2, 0.2, n) * 0.3)
+        self.sounds["damage"] = self._make_sound((wave * np.array(self._env(n, 0.02, 0.4))).tolist())
+
+        # Door: 100ms click + 80ms scrape
+        n1 = int(sr * 0.1)
+        n2 = int(sr * 0.08)
+        click = np.random.uniform(-0.5, 0.5, n1) * np.array(self._env(n1, 0.01, 0.5))
+        scrape = np.random.uniform(-0.15, 0.15, n2) * np.sin(2 * np.pi * 200 * np.linspace(0, 0.08, n2))
+        combined = np.concatenate([click, scrape])
+        self.sounds["door"] = self._make_sound(combined.tolist())
+
+        # Wolf growl: 300ms low rumble 60Hz + noise with tremolo
+        n = int(sr * 0.3)
+        t = np.linspace(0, 0.3, n)
+        tremolo = 0.5 + 0.5 * np.sin(2 * np.pi * 8 * t)
+        wave = (np.sin(2 * np.pi * 60 * t) * 0.4 + np.random.uniform(-0.1, 0.1, n) * 0.2) * tremolo
+        self.sounds["growl"] = self._make_sound((wave * np.array(self._env(n, 0.05, 0.3))).tolist())
+
+        # Save chime: C5->E5->G5 ascending, repeated with gap
+        notes = [523.25, 659.25, 783.99]
+        samples_per = int(sr * 0.12)
+        all_samples = []
+        for freq in notes:
+            t = np.linspace(0, 0.12, samples_per)
+            wave = np.sin(2 * np.pi * freq * t) * 0.3
+            all_samples.extend((wave * np.array(self._env(samples_per, 0.02, 0.3))).tolist())
+        gap = [0.0] * int(sr * 0.02)
+        self.sounds["save"] = self._make_sound(all_samples + gap + all_samples[:samples_per])
+
+    def play(self, name: str) -> None:
+        if not self.enabled or name not in self.sounds:
+            return
+        self.sounds[name].play()
+
+
 class Game:
     def __init__(self) -> None:
         # Force nearest-neighbor scaling for crisp pixel output.
@@ -377,6 +470,8 @@ class Game:
         self.time_alive = 0.0
 
         self.checkpoints: dict[str, tuple[int, int]] = {}
+        self.sound = SoundManager()
+        self.footstep_timer = 0.0
 
         self.load_visual_assets()
         self.load_area(self.current_area)
@@ -556,6 +651,7 @@ class Game:
         target_area = str(door.get("to", self.current_area))
         spawn = door.get("spawn", None)
         spawn_override = spawn if isinstance(spawn, tuple) else None
+        self.sound.play("door")
         self.load_area(target_area, spawn_override)
         zone_code, zone_name, _ = self.get_area_meta(target_area)
         self.message = f"Entering {zone_code} {zone_name}"
@@ -704,6 +800,7 @@ class Game:
         for laser in self.lasers:
             if self.laser_is_active(laser) and self.player.colliderect(laser.rect):
                 self.health = max(0, self.health - 12)
+                self.sound.play("damage")
                 self.damage_flash = 0.14
                 self.hit_cooldown = 0.45
                 self.message = "Laser burn"
@@ -833,6 +930,13 @@ class Game:
             self.player_vel.update(0, 0)
 
         self.walk_cycle += self.player_vel.length() * dt * 0.22
+        if self.player_vel.length_squared() > 9:
+            self.footstep_timer -= dt
+            if self.footstep_timer <= 0:
+                self.sound.play("footstep")
+                self.footstep_timer = 0.3
+        else:
+            self.footstep_timer = 0.0
         self.move_player(self.player_vel.x * dt, self.player_vel.y * dt)
 
         self.collect_pickups()
@@ -891,6 +995,7 @@ class Game:
         for pickup in self.pickups[:]:
             if self.player.colliderect(pickup.rect) and self.is_pickup_in_flashlight_range(pickup):
                 self.emit_particles(pickup.rect.centerx, pickup.rect.centery, 8, PALETTE["battery"])
+                self.sound.play("pickup")
                 if pickup.name == "key":
                     self.has_key = True
                     self.message = "Picked up a key"
@@ -1066,7 +1171,10 @@ class Game:
             to_player = player_center - wolf_vec
             dist = to_player.length()
 
+            was_alert = wolf.alert
             wolf.alert = dist < 64
+            if wolf.alert and not was_alert:
+                self.sound.play("growl")
             if dist < 90:
                 if dist > 0:
                     move = to_player.normalize() * (42 if wolf.alert else 30) * dt
@@ -1075,6 +1183,7 @@ class Game:
 
                 if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
                     self.health = max(0, self.health - 12)
+                    self.sound.play("damage")
                     self.damage_flash = 0.16
                     self.hit_cooldown = 0.5
                     self.message = "Wolf attack"
