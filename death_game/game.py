@@ -948,19 +948,14 @@ class Game:
         self.sprite_cache["knife"] = self.load_sprite(self.assets_root / "items" / "item_knife_pickup_a01.png", (8, 8))
         self.build_entity_sprites()
 
-    def load_sprite(self, path: Path, size: tuple[int, int]) -> pygame.Surface:
+    def load_sprite(self, path: Path, size: tuple[int, int]) -> pygame.Surface | None:
         if path.exists():
             sprite = pygame.image.load(path.as_posix()).convert_alpha()
             if sprite.get_size() != size:
                 sprite = pygame.transform.scale(sprite, size)
             return sprite
 
-        # Fallback placeholder keeps game playable when pipeline assets are not present yet.
-        placeholder = pygame.Surface(size, pygame.SRCALPHA)
-        placeholder.fill((0, 0, 0, 0))
-        pygame.draw.rect(placeholder, (22, 30, 40), placeholder.get_rect())
-        pygame.draw.rect(placeholder, (120, 140, 164), placeholder.get_rect(), 1)
-        return placeholder
+        return None
 
     def sprite_from_pattern(
         self,
