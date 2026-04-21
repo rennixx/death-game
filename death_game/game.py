@@ -52,6 +52,19 @@ PALETTE = {
     "health_low": (199, 70, 70),
 }
 
+
+def clamp_channel(value: float) -> int:
+    return max(0, min(255, int(value)))
+
+
+def mix_color(a: tuple[int, int, int], b: tuple[int, int, int], amount: float) -> tuple[int, int, int]:
+    t = max(0.0, min(1.0, amount))
+    return tuple(clamp_channel(ca + (cb - ca) * t) for ca, cb in zip(a, b))
+
+
+def shift_color(color: tuple[int, int, int], delta: int) -> tuple[int, int, int]:
+    return tuple(clamp_channel(channel + delta) for channel in color)
+
 AREA_MAPS = {
     "area1": [
         "####################",
@@ -171,6 +184,105 @@ AREA_META = {
     "final": ("B1-08", "EXIT HALL", "EXIT"),
 }
 
+AREA_THEMES: dict[str, dict[str, tuple[int, int, int]]] = {
+    "area1": {
+        "floor": (52, 46, 50),
+        "floor_alt": (62, 55, 58),
+        "floor_dark": (34, 31, 36),
+        "wall": (76, 70, 74),
+        "wall_hi": (118, 106, 110),
+        "wall_lo": (42, 38, 42),
+        "accent": (192, 146, 96),
+        "danger": (185, 78, 82),
+        "safe": (104, 158, 136),
+        "ambient": (52, 26, 30),
+    },
+    "hub": {
+        "floor": (44, 52, 63),
+        "floor_alt": (52, 62, 74),
+        "floor_dark": (28, 35, 44),
+        "wall": (68, 82, 97),
+        "wall_hi": (118, 134, 152),
+        "wall_lo": (32, 40, 50),
+        "accent": (96, 140, 188),
+        "danger": (186, 82, 78),
+        "safe": (96, 176, 148),
+        "ambient": (18, 34, 46),
+    },
+    "storage": {
+        "floor": (48, 54, 58),
+        "floor_alt": (56, 62, 66),
+        "floor_dark": (30, 36, 40),
+        "wall": (72, 80, 84),
+        "wall_hi": (114, 126, 130),
+        "wall_lo": (36, 42, 46),
+        "accent": (126, 174, 196),
+        "danger": (188, 86, 82),
+        "safe": (92, 170, 156),
+        "ambient": (24, 40, 50),
+    },
+    "medbay": {
+        "floor": (76, 84, 88),
+        "floor_alt": (86, 94, 98),
+        "floor_dark": (46, 52, 58),
+        "wall": (104, 112, 118),
+        "wall_hi": (146, 154, 160),
+        "wall_lo": (58, 66, 72),
+        "accent": (134, 182, 188),
+        "danger": (174, 66, 72),
+        "safe": (112, 188, 164),
+        "ambient": (36, 44, 54),
+    },
+    "maintenance": {
+        "floor": (58, 54, 46),
+        "floor_alt": (68, 62, 52),
+        "floor_dark": (34, 32, 28),
+        "wall": (84, 78, 66),
+        "wall_hi": (130, 120, 98),
+        "wall_lo": (42, 38, 32),
+        "accent": (216, 160, 72),
+        "danger": (194, 86, 74),
+        "safe": (98, 184, 146),
+        "ambient": (42, 32, 18),
+    },
+    "area2": {
+        "floor": (40, 44, 54),
+        "floor_alt": (48, 54, 66),
+        "floor_dark": (24, 28, 36),
+        "wall": (62, 70, 84),
+        "wall_hi": (102, 116, 134),
+        "wall_lo": (30, 34, 42),
+        "accent": (214, 84, 84),
+        "danger": (224, 76, 76),
+        "safe": (98, 170, 152),
+        "ambient": (24, 18, 26),
+    },
+    "area3": {
+        "floor": (50, 56, 64),
+        "floor_alt": (60, 68, 78),
+        "floor_dark": (30, 36, 42),
+        "wall": (76, 84, 94),
+        "wall_hi": (120, 132, 144),
+        "wall_lo": (38, 44, 52),
+        "accent": (116, 182, 204),
+        "danger": (194, 90, 88),
+        "safe": (110, 196, 170),
+        "ambient": (20, 32, 44),
+    },
+    "final": {
+        "floor": (42, 42, 48),
+        "floor_alt": (52, 52, 58),
+        "floor_dark": (26, 26, 32),
+        "wall": (66, 68, 76),
+        "wall_hi": (104, 106, 116),
+        "wall_lo": (30, 32, 38),
+        "accent": (214, 92, 82),
+        "danger": (222, 70, 76),
+        "safe": (120, 194, 168),
+        "ambient": (44, 16, 20),
+    },
+}
+
 AREA_DOORS: dict[str, list[dict[str, object]]] = {
     "area1": [
         {
@@ -244,6 +356,8 @@ class Wolf:
     y: float
     alive: bool = True
     alert: bool = False
+    facing_x: float = 1.0
+    facing_y: float = 0.0
 
     @property
     def rect(self) -> pygame.Rect:
@@ -462,6 +576,7 @@ class Game:
         self.shake_time = 0.0
         self.particles: list[Particle] = []
         self.sprite_cache: dict[str, pygame.Surface] = {}
+        self.entity_sprites: dict[str, dict[str, pygame.Surface]] = {}
         self.zone_card_title = ""
         self.zone_card_subtitle = ""
         self.zone_card_timer = 0.0
@@ -518,6 +633,7 @@ class Game:
         self.sprite_cache["bandage"] = self.load_sprite(self.assets_root / "items" / "item_bandage_a01.png", (8, 8))
         self.sprite_cache["flashlight"] = self.load_sprite(self.assets_root / "items" / "item_flashlight_a01.png", (8, 8))
         self.sprite_cache["knife"] = self.load_sprite(self.assets_root / "items" / "item_knife_pickup_a01.png", (8, 8))
+        self.build_entity_sprites()
 
     def load_sprite(self, path: Path, size: tuple[int, int]) -> pygame.Surface:
         if path.exists():
@@ -532,6 +648,340 @@ class Game:
         pygame.draw.rect(placeholder, (22, 30, 40), placeholder.get_rect())
         pygame.draw.rect(placeholder, (120, 140, 164), placeholder.get_rect(), 1)
         return placeholder
+
+    def sprite_from_pattern(
+        self,
+        pattern: list[str],
+        palette: dict[str, tuple[int, int, int] | tuple[int, int, int, int]],
+    ) -> pygame.Surface:
+        height = len(pattern)
+        width = max((len(row) for row in pattern), default=0)
+        surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        for y, row in enumerate(pattern):
+            for x, code in enumerate(row):
+                if code == ".":
+                    continue
+                color = palette.get(code)
+                if color is None:
+                    continue
+                surface.set_at((x, y), color)
+        return surface
+
+    def mirror_sprite(self, sprite: pygame.Surface) -> pygame.Surface:
+        return pygame.transform.flip(sprite, True, False)
+
+    def build_entity_sprites(self) -> None:
+        player_palette = {
+            "a": (46, 34, 30),
+            "s": (176, 130, 105),
+            "h": (226, 212, 192),
+            "j": (56, 69, 82),
+            "c": (88, 108, 122),
+            "g": (112, 90, 72),
+            "p": (50, 58, 72),
+            "b": (32, 34, 40),
+            "f": (112, 160, 118),
+            "m": (170, 174, 182),
+            "k": (226, 228, 232),
+            "r": (186, 82, 82),
+        }
+        wolf_palette = {
+            "o": (24, 22, 26),
+            "w": (102, 104, 108),
+            "g": (140, 142, 144),
+            "l": (176, 178, 180),
+            "e": (232, 236, 240),
+            "r": (228, 82, 82),
+            "n": (42, 32, 30),
+        }
+
+        player_patterns = {
+            "down_idle": [
+                "................",
+                "......aa........",
+                ".....assh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "....jccccj......",
+                "....jcggcj......",
+                ".....jccj.......",
+                "....pp..pp......",
+                "...bpp..ppb.....",
+                "...bb....bb.....",
+                "................",
+            ],
+            "down_walk_a": [
+                "................",
+                "......aa........",
+                ".....assh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "....jccccj......",
+                "....jcggcj......",
+                ".....jccj.......",
+                ".....pp.pp......",
+                "...bbp...pb.....",
+                "...b.....bb.....",
+                "................",
+            ],
+            "down_walk_b": [
+                "................",
+                "......aa........",
+                ".....assh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "....jccccj......",
+                "....jcggcj......",
+                ".....jccj.......",
+                "....pp.pp.......",
+                "...bp...pbb.....",
+                "...bb.....b.....",
+                "................",
+            ],
+            "up_idle": [
+                "................",
+                "......aa........",
+                ".....ajja.......",
+                ".....jjjj.......",
+                "....jjccjj......",
+                "....jccccj......",
+                "....jcgccj......",
+                ".....jccj.......",
+                "....pp..pp......",
+                "...bpp..ppb.....",
+                "...bb....bb.....",
+                "................",
+            ],
+            "up_walk_a": [
+                "................",
+                "......aa........",
+                ".....ajja.......",
+                ".....jjjj.......",
+                "....jjccjj......",
+                "....jccccj......",
+                "....jcgccj......",
+                ".....jccj.......",
+                ".....pp.pp......",
+                "...bbp...pb.....",
+                "...b.....bb.....",
+                "................",
+            ],
+            "up_walk_b": [
+                "................",
+                "......aa........",
+                ".....ajja.......",
+                ".....jjjj.......",
+                "....jjccjj......",
+                "....jccccj......",
+                "....jcgccj......",
+                ".....jccj.......",
+                "....pp.pp.......",
+                "...bp...pbb.....",
+                "...bb.....b.....",
+                "................",
+            ],
+            "side_idle": [
+                "................",
+                "......aa........",
+                ".....assh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "....jccccjj.....",
+                "....jcgccfk.....",
+                ".....jccjj......",
+                "....pppp........",
+                "...bp.pmb.......",
+                "...bb..bb.......",
+                "................",
+            ],
+            "side_walk_a": [
+                "................",
+                "......aa........",
+                ".....assh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "....jccccjj.....",
+                "....jcgccfk.....",
+                ".....jccjj......",
+                ".....ppp........",
+                "...bbp.pmb......",
+                "...b...bb.......",
+                "................",
+            ],
+            "side_walk_b": [
+                "................",
+                "......aa........",
+                ".....assh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "....jccccjj.....",
+                "....jcgccfk.....",
+                ".....jccjj......",
+                "....pppp........",
+                "...bp..pmb......",
+                "...bb...bb......",
+                "................",
+            ],
+            "side_hurt": [
+                "................",
+                "......aa........",
+                ".....arrh.......",
+                ".....shhs.......",
+                "....jjccjj......",
+                "...jjccccjj.....",
+                "...jjcgccfk.....",
+                "....jjccjj......",
+                "....pppp........",
+                "...bp.pmb.......",
+                "..bb...bb.......",
+                "................",
+            ],
+        }
+
+        wolf_patterns = {
+            "side_idle": [
+                "................",
+                "................",
+                "....oo..........",
+                "...owggwwo......",
+                "..owwwwwwwwo....",
+                "..owwwwwwwwe....",
+                "...owwwwwwwo....",
+                "..oo.ww.ww......",
+                "..o..ww.ww......",
+                ".....o...o......",
+                "................",
+                "................",
+            ],
+            "side_walk_a": [
+                "................",
+                "................",
+                "....oo..........",
+                "...owggwwo......",
+                "..owwwwwwwwo....",
+                "..owwwwwwwwe....",
+                "...owwwwwwwo....",
+                "...o.ww..ww.....",
+                "..o..ww.ww......",
+                ".....o...o......",
+                "................",
+                "................",
+            ],
+            "side_walk_b": [
+                "................",
+                "................",
+                "....oo..........",
+                "...owggwwo......",
+                "..owwwwwwwwo....",
+                "..owwwwwwwwe....",
+                "...owwwwwwwo....",
+                "..oo..ww.ww.....",
+                "...o.ww..ww.....",
+                "......o...o.....",
+                "................",
+                "................",
+            ],
+            "side_alert": [
+                "................",
+                "................",
+                "....oo..........",
+                "...owllwwo......",
+                "..owwwwwwwwo....",
+                "..owwwwwwwwr....",
+                "...owwwwwwwo....",
+                "..oo.ww.ww......",
+                "..o..ww.ww......",
+                ".....o...o......",
+                "................",
+                "................",
+            ],
+            "up_idle": [
+                "................",
+                "................",
+                ".....owwo.......",
+                "....owwwwo......",
+                "...owwllwwo.....",
+                "...owwwwwwo.....",
+                "...owwwwwwo.....",
+                "...o.wwww.o.....",
+                "..o..w..w..o....",
+                ".....o..o.......",
+                "................",
+                "................",
+            ],
+            "up_alert": [
+                "................",
+                "................",
+                ".....owwo.......",
+                "....owrrwo......",
+                "...owwllwwo.....",
+                "...owwwwwwo.....",
+                "...owwwwwwo.....",
+                "...o.wwww.o.....",
+                "..o..w..w..o....",
+                ".....o..o.......",
+                "................",
+                "................",
+            ],
+            "down_idle": [
+                "................",
+                "................",
+                ".....owwo.......",
+                "....owggwo......",
+                "...owwwwwwo.....",
+                "...owweewwo.....",
+                "...owwwwwwo.....",
+                "...o.wwww.o.....",
+                "..o..w..w..o....",
+                ".....o..o.......",
+                "................",
+                "................",
+            ],
+            "down_alert": [
+                "................",
+                "................",
+                ".....owwo.......",
+                "....owllwo......",
+                "...owwwwwwo.....",
+                "...owwrrwwo.....",
+                "...owwwwwwo.....",
+                "...o.wwww.o.....",
+                "..o..w..w..o....",
+                ".....o..o.......",
+                "................",
+                "................",
+            ],
+            "corpse": [
+                "................",
+                "................",
+                "................",
+                "...owwwww.......",
+                "..owwwwwww......",
+                "..owwwggwo......",
+                "...owwwwwo......",
+                "....owwwwo......",
+                ".....o..oo......",
+                "................",
+                "................",
+                "................",
+            ],
+        }
+
+        self.entity_sprites["player"] = {}
+        for key, pattern in player_patterns.items():
+            sprite = self.sprite_from_pattern(pattern, player_palette)
+            self.entity_sprites["player"][key] = sprite
+            if key.startswith("side_"):
+                self.entity_sprites["player"][key.replace("side_", "left_")] = self.mirror_sprite(sprite)
+                self.entity_sprites["player"][key.replace("side_", "right_")] = sprite
+
+        self.entity_sprites["wolf"] = {}
+        for key, pattern in wolf_patterns.items():
+            sprite = self.sprite_from_pattern(pattern, wolf_palette)
+            self.entity_sprites["wolf"][key] = sprite
+            if key.startswith("side_"):
+                self.entity_sprites["wolf"][key.replace("side_", "left_")] = self.mirror_sprite(sprite)
+                self.entity_sprites["wolf"][key.replace("side_", "right_")] = sprite
 
     def save_game(self) -> None:
         data = {
@@ -728,6 +1178,10 @@ class Game:
     def get_area_meta(self, area_id: str | None = None) -> tuple[str, str, str]:
         key = area_id if area_id is not None else self.current_area
         return AREA_META.get(key, ("B1-??", "UNKNOWN ZONE", "???"))
+
+    def get_area_theme(self, area_id: str | None = None) -> dict[str, tuple[int, int, int]]:
+        key = area_id if area_id is not None else self.current_area
+        return AREA_THEMES.get(key, AREA_THEMES["hub"])
 
     def get_area_doors(self, area_id: str | None = None) -> list[dict[str, object]]:
         key = area_id if area_id is not None else self.current_area
@@ -1383,9 +1837,16 @@ class Game:
             wolf.alert = dist < 64
             if wolf.alert and not was_alert:
                 self.sound.play("growl")
+                if dist > 0:
+                    snap_dir = to_player.normalize()
+                    wolf.facing_x = snap_dir.x
+                    wolf.facing_y = snap_dir.y
             if dist < 90:
                 if dist > 0:
-                    move = to_player.normalize() * (42 if wolf.alert else 30) * dt
+                    heading = to_player.normalize()
+                    wolf.facing_x = heading.x
+                    wolf.facing_y = heading.y
+                    move = heading * (42 if wolf.alert else 30) * dt
                     wolf.x += move.x
                     wolf.y += move.y
 
@@ -1526,6 +1987,7 @@ class Game:
         self.draw_entities()
         self.draw_particles()
         self.draw_darkness_overlay()
+        self.draw_player_sprite()
         self.draw_atmosphere_front()
         self.draw_intro_overlay()
 
@@ -1913,111 +2375,297 @@ class Game:
             self.blit_text_shadow_on(surface, line, rect.x, y, rect.width)
             y += line_height
 
+    def get_map_cell(self, tile_x: int, tile_y: int) -> str:
+        if tile_y < 0 or tile_y >= len(self.current_map):
+            return "#"
+        row = self.current_map[tile_y]
+        if tile_x < 0 or tile_x >= len(row):
+            return "#"
+        return row[tile_x]
+
+    def draw_floor_tile(
+        self,
+        tile_x: int,
+        tile_y: int,
+        tile_rect: pygame.Rect,
+        theme: dict[str, tuple[int, int, int]],
+        is_dark: bool,
+    ) -> None:
+        base = theme["floor_dark"] if is_dark else theme["floor"]
+        alt = mix_color(base, theme["floor_alt"], 0.65 if not is_dark else 0.3)
+        self.canvas.fill(base, tile_rect)
+
+        if (tile_x * 3 + tile_y * 5) % 4 in (0, 3):
+            self.canvas.fill(alt, pygame.Rect(tile_rect.x + 1, tile_rect.y + 1, 6, 6))
+        if (tile_x + tile_y) % 2 == 0:
+            self.canvas.fill(shift_color(base, 8), pygame.Rect(tile_rect.x + 9, tile_rect.y + 3, 4, 4))
+
+        for nx, ny, seam_rect in (
+            (tile_x, tile_y - 1, pygame.Rect(tile_rect.x, tile_rect.y, tile_rect.width, 2)),
+            (tile_x - 1, tile_y, pygame.Rect(tile_rect.x, tile_rect.y, 2, tile_rect.height)),
+        ):
+            if self.get_map_cell(nx, ny) == "#":
+                self.canvas.fill(theme["floor_dark"], seam_rect)
+
+        if self.current_area == "maintenance" and (tile_x + tile_y) % 5 == 0:
+            stripe = pygame.Rect(tile_rect.x + 3, tile_rect.y + 6, 10, 2)
+            self.canvas.fill(theme["accent"], stripe)
+            self.canvas.fill((24, 24, 24), pygame.Rect(stripe.x + 1, stripe.y, 2, 2))
+            self.canvas.fill((24, 24, 24), pygame.Rect(stripe.x + 5, stripe.y, 2, 2))
+        elif self.current_area == "medbay" and tile_y % 2 == 0:
+            self.canvas.fill(shift_color(base, 12), pygame.Rect(tile_rect.x + 7, tile_rect.y, 1, tile_rect.height))
+        elif self.current_area == "final" and (tile_x + tile_y) % 6 == 0:
+            self.canvas.fill(theme["danger"], pygame.Rect(tile_rect.x + 2, tile_rect.y + 11, 9, 1))
+
+    def draw_wall_tile(
+        self,
+        tile_x: int,
+        tile_y: int,
+        tile_rect: pygame.Rect,
+        theme: dict[str, tuple[int, int, int]],
+    ) -> None:
+        self.canvas.fill(theme["wall"], tile_rect)
+        self.canvas.fill(theme["wall_hi"], pygame.Rect(tile_rect.x, tile_rect.y, tile_rect.width, 2))
+        self.canvas.fill(theme["wall_lo"], pygame.Rect(tile_rect.x, tile_rect.bottom - 3, tile_rect.width, 3))
+        self.canvas.fill(shift_color(theme["wall_lo"], -6), pygame.Rect(tile_rect.x, tile_rect.y + 3, 2, tile_rect.height - 5))
+        if tile_x % 2 == 0:
+            self.canvas.fill(shift_color(theme["wall"], -10), pygame.Rect(tile_rect.x + 6, tile_rect.y + 2, 1, tile_rect.height - 5))
+        if (tile_x + tile_y) % 3 == 0:
+            self.canvas.fill(shift_color(theme["wall_hi"], 8), pygame.Rect(tile_rect.x + 10, tile_rect.y + 4, 3, 2))
+        if self.get_map_cell(tile_x, tile_y + 1) != "#":
+            self.canvas.fill((12, 16, 22), pygame.Rect(tile_rect.x, tile_rect.bottom - 2, tile_rect.width, 2))
+
+    def draw_door_tile(
+        self,
+        tile_rect: pygame.Rect,
+        locked: bool,
+        theme: dict[str, tuple[int, int, int]],
+    ) -> None:
+        pulse = int((math.sin(self.time_alive * 3.1) + 1.0) * 0.5 * 24)
+        slab_fill = mix_color(theme["wall"], theme["accent"], 0.2 if locked else 0.38)
+        slab_border = theme["danger"] if locked else theme["safe"]
+
+        # Keep the tile readable as a doorway frame, with a slimmer vertical leaf in the center.
+        frame_color = mix_color(theme["wall_lo"], theme["wall"], 0.45)
+        jamb_color = shift_color(frame_color, 8)
+        self.canvas.fill(frame_color, tile_rect)
+        self.canvas.fill(jamb_color, pygame.Rect(tile_rect.x, tile_rect.y, 2, tile_rect.height))
+        self.canvas.fill(jamb_color, pygame.Rect(tile_rect.right - 2, tile_rect.y, 2, tile_rect.height))
+        self.canvas.fill(shift_color(frame_color, -8), pygame.Rect(tile_rect.x + 2, tile_rect.y + 1, tile_rect.width - 4, 2))
+
+        door_rect = pygame.Rect(tile_rect.x + 4, tile_rect.y + 1, 8, tile_rect.height - 2)
+        self.canvas.fill(slab_fill, door_rect)
+        pygame.draw.rect(self.canvas, slab_border, door_rect, 1)
+        self.canvas.fill(shift_color(slab_fill, 18), pygame.Rect(door_rect.x + 1, door_rect.y + 1, door_rect.width - 2, 2))
+        self.canvas.fill(shift_color(slab_fill, -18), pygame.Rect(door_rect.x + 1, door_rect.bottom - 3, door_rect.width - 2, 2))
+        self.canvas.fill((18, 24, 32), pygame.Rect(door_rect.centerx - 1, door_rect.y + 2, 2, door_rect.height - 4))
+
+        if locked:
+            for offset in range(-2, 8, 3):
+                pygame.draw.line(
+                    self.canvas,
+                    shift_color(theme["danger"], 28),
+                    (door_rect.x + offset, door_rect.bottom - 1),
+                    (door_rect.x + offset + 5, door_rect.y + 1),
+                )
+        else:
+            self.canvas.fill(shift_color(theme["safe"], 28), pygame.Rect(door_rect.x + 1, door_rect.y + 6, door_rect.width - 2, 1))
+        light = theme["danger"] if locked else theme["safe"]
+        self.canvas.fill(shift_color(light, pulse // 2), pygame.Rect(door_rect.right - 2, door_rect.y + 3, 1, 4))
+
+    def draw_laser_beam(self, laser: LaserBeam, theme: dict[str, tuple[int, int, int]], active: bool) -> None:
+        emitter = mix_color(theme["wall"], theme["accent"], 0.42)
+        horizontal = laser.rect.width > laser.rect.height
+        if horizontal:
+            left_post = pygame.Rect(laser.rect.x - 2, laser.rect.y - 2, 3, laser.rect.height + 4)
+            right_post = pygame.Rect(laser.rect.right - 1, laser.rect.y - 2, 3, laser.rect.height + 4)
+            self.canvas.fill(emitter, left_post)
+            self.canvas.fill(emitter, right_post)
+        else:
+            top_post = pygame.Rect(laser.rect.x - 2, laser.rect.y - 2, laser.rect.width + 4, 3)
+            bottom_post = pygame.Rect(laser.rect.x - 2, laser.rect.bottom - 1, laser.rect.width + 4, 3)
+            self.canvas.fill(emitter, top_post)
+            self.canvas.fill(emitter, bottom_post)
+
+        if active:
+            glow = pygame.Surface((laser.rect.width + 6, laser.rect.height + 6), pygame.SRCALPHA)
+            glow.fill((theme["danger"][0], theme["danger"][1], theme["danger"][2], 56))
+            self.canvas.blit(glow, (laser.rect.x - 3, laser.rect.y - 3))
+            self.canvas.fill(theme["danger"], laser.rect)
+            if horizontal:
+                self.canvas.fill((255, 212, 212), pygame.Rect(laser.rect.x, laser.rect.y, laser.rect.width, 1))
+            else:
+                self.canvas.fill((255, 212, 212), pygame.Rect(laser.rect.x, laser.rect.y, 1, laser.rect.height))
+        else:
+            dim = mix_color(theme["danger"], theme["wall_lo"], 0.65)
+            self.canvas.fill(dim, laser.rect)
+
+    def draw_terminal_tile(
+        self,
+        tile: tuple[int, int],
+        active: bool,
+        theme: dict[str, tuple[int, int, int]],
+        glow_color: tuple[int, int, int],
+    ) -> None:
+        rect = pygame.Rect(tile[0] * TILE_SIZE, tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        pulse = int((math.sin(self.time_alive * 2.2 + tile[0]) + 1.0) * 0.5 * 28)
+        screen_color = shift_color(glow_color, pulse // 3) if active else mix_color(glow_color, theme["wall_lo"], 0.6)
+        self.canvas.fill((20, 24, 30), pygame.Rect(rect.x + 2, rect.y + 11, 12, 3))
+        self.canvas.fill(mix_color(theme["wall"], theme["accent"], 0.28), pygame.Rect(rect.x + 4, rect.y + 7, 8, 5))
+        self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 3, rect.y + 2, 10, 6))
+        self.canvas.fill(screen_color, pygame.Rect(rect.x + 4, rect.y + 3, 8, 4))
+        self.canvas.fill(shift_color(screen_color, 22), pygame.Rect(rect.x + 4, rect.y + 3, 8, 1))
+        floor_glow = pygame.Surface((16, 10), pygame.SRCALPHA)
+        floor_glow.fill((screen_color[0], screen_color[1], screen_color[2], 46 if active else 20))
+        self.canvas.blit(floor_glow, (rect.x, rect.y + 9))
+
+    def draw_furniture_tile(
+        self,
+        tile_x: int,
+        tile_y: int,
+        kind: str,
+        theme: dict[str, tuple[int, int, int]],
+    ) -> None:
+        rect = pygame.Rect(tile_x * TILE_SIZE, tile_y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+        self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 2, rect.y + 12, 12, 2))
+        if kind == "desk":
+            self.canvas.fill((96, 74, 62), pygame.Rect(rect.x + 1, rect.y + 6, 14, 4))
+            self.canvas.fill((42, 50, 60), pygame.Rect(rect.x + 4, rect.y + 2, 8, 5))
+            self.canvas.fill(theme["accent"], pygame.Rect(rect.x + 10, rect.y + 4, 1, 1))
+            self.canvas.fill((80, 58, 48), pygame.Rect(rect.x + 2, rect.y + 10, 2, 4))
+            self.canvas.fill((80, 58, 48), pygame.Rect(rect.x + 12, rect.y + 10, 2, 4))
+            self.canvas.fill((148, 120, 86), pygame.Rect(rect.x + 3, rect.y + 7, 10, 1))
+        elif kind == "cabinet":
+            self.canvas.fill((86, 84, 92), pygame.Rect(rect.x + 3, rect.y + 1, 10, 13))
+            self.canvas.fill((124, 122, 130), pygame.Rect(rect.x + 4, rect.y + 2, 8, 2))
+            self.canvas.fill((54, 52, 58), pygame.Rect(rect.x + 7, rect.y + 4, 1, 8))
+            self.canvas.fill((190, 178, 136), pygame.Rect(rect.x + 10, rect.y + 6, 1, 2))
+        elif kind == "bed":
+            self.canvas.fill((82, 58, 56), pygame.Rect(rect.x + 1, rect.y + 3, 14, 10))
+            self.canvas.fill((206, 206, 194), pygame.Rect(rect.x + 2, rect.y + 4, 12, 7))
+            self.canvas.fill((226, 226, 214), pygame.Rect(rect.x + 2, rect.y + 4, 4, 3))
+            self.canvas.fill(theme["danger"], pygame.Rect(rect.x + 9, rect.y + 9, 3, 1))
+        elif kind == "freezer":
+            freezer_key = (self.current_area, tile_x, tile_y)
+            charges = self.freezer_charges.get(freezer_key, 0)
+            light_col = theme["safe"] if charges > 0 else (118, 126, 136)
+            self.canvas.fill((76, 92, 108), pygame.Rect(rect.x + 2, rect.y + 1, 12, 13))
+            pygame.draw.rect(self.canvas, (150, 178, 198), pygame.Rect(rect.x + 2, rect.y + 1, 12, 13), 1)
+            self.canvas.fill((220, 232, 240), pygame.Rect(rect.x + 3, rect.y + 2, 10, 1))
+            self.canvas.fill(light_col, pygame.Rect(rect.x + 6, rect.y + 5, 4, 3))
+            self.canvas.fill((196, 210, 226), pygame.Rect(rect.x + 4, rect.y + 3, 2, 1))
+        else:
+            self.canvas.fill((108, 84, 66), pygame.Rect(rect.x + 4, rect.y + 6, 8, 4))
+            self.canvas.fill((84, 62, 46), pygame.Rect(rect.x + 5, rect.y + 10, 1, 4))
+            self.canvas.fill((84, 62, 46), pygame.Rect(rect.x + 10, rect.y + 10, 1, 4))
+
+    def draw_pickup_entity(self, pickup: ItemPickup) -> None:
+        base_rect = pickup.rect
+        shadow_rect = pygame.Rect(base_rect.x, base_rect.y + 5, base_rect.width, 3)
+        self.canvas.fill((10, 12, 18), shadow_rect)
+        bob = int(math.sin(self.time_alive * 4.3 + base_rect.x * 0.11 + base_rect.y * 0.07) * 1.5)
+        draw_rect = base_rect.move(0, bob)
+        color_name = {
+            "key": "key",
+            "battery": "battery",
+            "bandage": "bandage",
+            "flashlight": "flashlight",
+            "knife": "door",
+        }.get(pickup.name, "bandage")
+        self.draw_pickup_icon(draw_rect, pickup.name, PALETTE[color_name], self.sprite_cache.get(pickup.name))
+        glint_phase = (self.time_alive * 2.1 + base_rect.x * 0.03 + base_rect.y * 0.05) % 2.2
+        if glint_phase < 0.18:
+            glint = draw_rect.inflate(4, 4)
+            pygame.draw.line(self.canvas, (255, 250, 224), (glint.centerx - 2, glint.centery), (glint.centerx + 2, glint.centery))
+            pygame.draw.line(self.canvas, (255, 250, 224), (glint.centerx, glint.centery - 2), (glint.centerx, glint.centery + 2))
+        if pickup.name == "key":
+            glow = pygame.Surface((draw_rect.width + 8, draw_rect.height + 8), pygame.SRCALPHA)
+            glow.fill((226, 190, 69, 48))
+            self.canvas.blit(glow, (draw_rect.x - 4, draw_rect.y - 4))
+
+    def get_direction_key(self, vec: pygame.Vector2) -> str:
+        if vec.length_squared() <= 0:
+            return "right"
+        if abs(vec.x) > abs(vec.y):
+            return "right" if vec.x >= 0 else "left"
+        return "down" if vec.y >= 0 else "up"
+
+    def draw_centered_sprite(self, rect: pygame.Rect, sprite: pygame.Surface, y_offset: int = 0) -> None:
+        draw_x = rect.centerx - sprite.get_width() // 2
+        draw_y = rect.bottom - sprite.get_height() + y_offset
+        self.canvas.blit(sprite, (draw_x, draw_y))
+
     def draw_world(self) -> None:
+        theme = self.get_area_theme()
         for y, row in enumerate(self.current_map):
             for x, cell in enumerate(row):
                 tile_rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-                color = PALETTE["floor"]
-                if (x, y) in self.dark_tiles:
-                    color = PALETTE["dark_floor"]
                 if cell == "#":
-                    color = PALETTE["wall"]
-                self.canvas.fill(color, tile_rect)
-
-                # Subtle pixel variation to avoid flat-looking walls/floors.
-                if cell != "#" and (x + y) % 3 == 0:
-                    self.canvas.fill((color[0] + 6, color[1] + 6, color[2] + 6), pygame.Rect(tile_rect.x + 2, tile_rect.y + 2, 2, 2))
-                if cell == "#":
-                    pygame.draw.line(self.canvas, (54, 68, 84), (tile_rect.x, tile_rect.y), (tile_rect.right - 1, tile_rect.y))
-                    pygame.draw.line(self.canvas, (20, 26, 34), (tile_rect.x, tile_rect.bottom - 1), (tile_rect.right - 1, tile_rect.bottom - 1))
+                    self.draw_wall_tile(x, y, tile_rect, theme)
+                else:
+                    self.draw_floor_tile(x, y, tile_rect, theme, (x, y) in self.dark_tiles)
 
         for door in self.current_doors:
             dx, dy = door["tile"]
             door_rect = pygame.Rect(dx * TILE_SIZE, dy * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            locked = self.is_door_locked(door)
-            fill = (92, 70, 60) if locked else (72, 94, 116)
-            border = (214, 126, 96) if locked else (138, 178, 228)
-            self.canvas.fill(fill, door_rect)
-            pygame.draw.rect(self.canvas, border, door_rect, 1)
-            pulse = int((math.sin(self.time_alive * 2.7) + 1.0) * 0.5 * 26)
-            light_col = (208 + pulse // 2, 74, 74) if locked else (98, 202 + pulse // 3, 158)
-            self.canvas.fill(light_col, pygame.Rect(door_rect.x + 6, door_rect.y + 6, 3, 3))
+            self.draw_door_tile(door_rect, self.is_door_locked(door), theme)
 
         if self.current_area == "final" and self.final_exit_tile != (0, 0):
             final_rect = pygame.Rect(self.final_exit_tile[0] * TILE_SIZE, self.final_exit_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            col = PALETTE["exit"] if self.final_exit_unlocked else (52, 64, 86)
-            self.canvas.fill(col, final_rect)
             pulse = int((math.sin(self.time_alive * 2.1) + 1.0) * 0.5 * 36)
-            border_col = (120 + pulse, 170 + pulse // 2, 255) if self.final_exit_unlocked else (92, 104, 122)
-            pygame.draw.rect(self.canvas, border_col, final_rect, 1)
+            exit_fill = mix_color(theme["wall"], PALETTE["exit"], 0.42 if self.final_exit_unlocked else 0.18)
+            exit_border = (120 + pulse, 170 + pulse // 2, 255) if self.final_exit_unlocked else (92, 104, 122)
+            self.canvas.fill(exit_fill, final_rect)
+            pygame.draw.rect(self.canvas, exit_border, final_rect, 1)
+            self.canvas.fill((18, 22, 30), pygame.Rect(final_rect.x + 4, final_rect.y + 1, 8, 12))
+            self.canvas.fill(shift_color(exit_border, 18 if self.final_exit_unlocked else -12), pygame.Rect(final_rect.x + 6, final_rect.y + 4, 4, 4))
 
         if self.current_area == "area2":
             for laser in self.lasers:
-                active = self.laser_is_active(laser)
-                col = (220, 62, 62) if active else (90, 50, 50)
-                if self.area2_cleared:
-                    col = (50, 86, 104)
-                self.canvas.fill(col, laser.rect)
-                if active:
-                    self.canvas.fill((255, 170, 170), pygame.Rect(laser.rect.x, laser.rect.y, max(1, laser.rect.width), 1))
+                self.draw_laser_beam(laser, theme, self.laser_is_active(laser))
 
         for (tx, ty), kind in self.furniture.items():
-            item_rect = pygame.Rect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            if kind == "desk":
-                self.canvas.fill((86, 70, 60), item_rect)
-                self.canvas.fill((40, 46, 56), pygame.Rect(item_rect.x + 2, item_rect.y + 3, 12, 7))
-            elif kind == "cabinet":
-                self.canvas.fill((76, 74, 80), item_rect)
-                self.canvas.fill((180, 170, 136), pygame.Rect(item_rect.x + 11, item_rect.y + 7, 2, 2))
-            elif kind == "bed":
-                self.canvas.fill((82, 62, 56), item_rect)
-                self.canvas.fill((185, 185, 175), pygame.Rect(item_rect.x + 1, item_rect.y + 2, 14, 9))
-            elif kind == "freezer":
-                self.canvas.fill((70, 88, 104), item_rect)
-                pygame.draw.rect(self.canvas, (136, 170, 198), item_rect, 1)
-                freezer_key = (self.current_area, tx, ty)
-                charges = self.freezer_charges.get(freezer_key, 0)
-                light_col = (88, 220, 160) if charges > 0 else (120, 128, 138)
-                self.canvas.fill(light_col, pygame.Rect(item_rect.x + 6, item_rect.y + 3, 4, 4))
-            else:
-                self.canvas.fill((95, 78, 66), item_rect)
+            self.draw_furniture_tile(tx, ty, kind, theme)
+
+        for trap_tile, is_active in self.traps.items():
+            rect = pygame.Rect(trap_tile[0] * TILE_SIZE, trap_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            spike = theme["danger"] if is_active else shift_color(theme["wall_lo"], 20)
+            self.canvas.fill((18, 20, 24), pygame.Rect(rect.x + 2, rect.y + 11, 12, 2))
+            for offset in (2, 5, 8, 11):
+                pygame.draw.line(self.canvas, spike, (rect.x + offset, rect.y + 11), (rect.x + offset + 1, rect.y + 5))
 
         if self.current_area == "maintenance" and self.breaker_tile != (0, 0):
-            br = pygame.Rect(self.breaker_tile[0] * TILE_SIZE, self.breaker_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            self.canvas.fill((70, 84, 98), br)
-            light_col = (80, 210, 140) if self.area2_cleared else (220, 170, 70)
-            self.canvas.fill(light_col, pygame.Rect(br.x + 5, br.y + 4, 6, 6))
+            rect = pygame.Rect(self.breaker_tile[0] * TILE_SIZE, self.breaker_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            switch_on = self.area2_cleared
+            switch_light = theme["safe"] if switch_on else theme["accent"]
+            self.canvas.fill((20, 24, 28), pygame.Rect(rect.x + 2, rect.y + 12, 12, 2))
+            self.canvas.fill((88, 96, 104), pygame.Rect(rect.x + 4, rect.y + 2, 8, 10))
+            self.canvas.fill((54, 58, 64), pygame.Rect(rect.x + 5, rect.y + 3, 6, 8))
+            lever_y = rect.y + (3 if switch_on else 7)
+            pygame.draw.line(self.canvas, shift_color(switch_light, 22), (rect.x + 8, lever_y), (rect.x + 11, lever_y - 2 if switch_on else lever_y + 2))
+            self.canvas.fill(switch_light, pygame.Rect(rect.x + 5, rect.y + 10, 6, 2))
 
         if self.current_area == "area3" and self.elevator_terminal_tile != (0, 0):
-            tr = pygame.Rect(self.elevator_terminal_tile[0] * TILE_SIZE, self.elevator_terminal_tile[1] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            self.canvas.fill((68, 74, 88), tr)
-            light_col = (80, 210, 140) if self.elevator_choice_made else (210, 92, 92)
-            self.canvas.fill(light_col, pygame.Rect(tr.x + 5, tr.y + 4, 6, 6))
+            self.draw_terminal_tile(self.elevator_terminal_tile, self.elevator_choice_made, theme, theme["safe"])
+
+        for tile in self.save_tiles:
+            self.draw_terminal_tile(tile, True, theme, theme["safe"])
 
     def draw_entities(self) -> None:
         if self.can_reveal_pickups():
             for pickup in self.pickups:
                 if not self.is_pickup_in_flashlight_range(pickup):
                     continue
-                color_name = {
-                    "key": "key",
-                    "battery": "battery",
-                    "bandage": "bandage",
-                    "flashlight": "flashlight",
-                    "knife": "door",
-                }.get(pickup.name, "bandage")
-                self.draw_pickup_icon(pickup.rect, pickup.name, PALETTE[color_name], self.sprite_cache.get(pickup.name))
+                self.draw_pickup_entity(pickup)
 
         for wolf in self.wolves:
-            if not wolf.alive:
-                continue
             self.draw_wolf_sprite(wolf)
 
-        self.draw_player_sprite()
-
     def draw_darkness_overlay(self) -> None:
+        theme = self.get_area_theme()
         overlay = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((4, 6, 10, 120))
+        ambient = theme["ambient"]
+        overlay.fill((ambient[0], ambient[1], ambient[2], 124))
 
         tile_x = self.player.centerx // TILE_SIZE
         tile_y = self.player.centery // TILE_SIZE
@@ -2025,14 +2673,49 @@ class Game:
 
         if self.flashlight_on and self.battery > 0:
             radius = 56 if self.battery > 20 else 46
-            center = (self.player.centerx, self.player.centery)
-            for i in range(4):
-                pygame.draw.circle(overlay, (0, 0, 0, max(0, 75 - i * 24)), center, radius + i * 10)
-            pygame.draw.circle(overlay, (0, 0, 0, 0), center, radius)
+            center = pygame.Vector2(self.player.centerx, self.player.centery)
+            direction = self.last_dir if self.last_dir.length_squared() > 0 else pygame.Vector2(1, 0)
+            direction = direction.normalize()
+            perpendicular = pygame.Vector2(-direction.y, direction.x)
+
+            # Keep a readable local bubble around the player so nearby props don't disappear.
+            local_radius = 34 if self.battery > 20 else 28
+            pygame.draw.circle(overlay, (ambient[0], ambient[1], ambient[2], 40), (int(center.x), int(center.y)), local_radius)
+            pygame.draw.circle(overlay, (ambient[0], ambient[1], ambient[2], 58), (int(center.x), int(center.y)), local_radius + 10)
+
+            # Forward beam uses overlapping circles with slight side spread to imply a cone.
+            beam_nodes = 5
+            for idx in range(beam_nodes):
+                t = idx / max(1, beam_nodes - 1)
+                node_center = center + direction * (local_radius - 4 + t * (radius - 2))
+                node_radius = int(12 + (1.0 - t) * 6 + t * 12)
+                core_alpha = int(34 - t * 12)
+                pygame.draw.circle(
+                    overlay,
+                    (ambient[0], ambient[1], ambient[2], core_alpha),
+                    (int(node_center.x), int(node_center.y)),
+                    node_radius,
+                )
+
+                side_spread = perpendicular * (3 + t * 9)
+                side_radius = max(7, node_radius - 8)
+                edge_alpha = int(60 - t * 10)
+                pygame.draw.circle(
+                    overlay,
+                    (ambient[0], ambient[1], ambient[2], edge_alpha),
+                    (int((node_center + side_spread).x), int((node_center + side_spread).y)),
+                    side_radius,
+                )
+                pygame.draw.circle(
+                    overlay,
+                    (ambient[0], ambient[1], ambient[2], edge_alpha),
+                    (int((node_center - side_spread).x), int((node_center - side_spread).y)),
+                    side_radius,
+                )
         elif in_dark_zone:
             radius = 18
             center = (self.player.centerx, self.player.centery)
-            pygame.draw.circle(overlay, (0, 0, 0, 0), center, radius)
+            pygame.draw.circle(overlay, (ambient[0], ambient[1], ambient[2], 44), center, radius)
 
         self.canvas.blit(overlay, (0, 0))
 
@@ -2359,69 +3042,97 @@ class Game:
 
     def draw_wolf_sprite(self, wolf: Wolf) -> None:
         body = wolf.rect
-        sprite = self.sprite_cache.get("wolf")
-        if sprite is not None:
-            draw_x = body.centerx - sprite.get_width() // 2
-            draw_y = body.bottom - sprite.get_height() + 1
-            self.canvas.blit(sprite, (draw_x, draw_y))
-            if wolf.alert:
-                self.canvas.fill((220, 80, 80), pygame.Rect(draw_x + 11, draw_y + 5, 2, 2), special_flags=pygame.BLEND_ADD)
+        shadow_w = 13 if wolf.alive else 14
+        shadow = pygame.Rect(body.centerx - shadow_w // 2, body.y + 11, shadow_w, 2)
+        self.canvas.fill((10, 12, 16), shadow)
+
+        sprite_set = self.entity_sprites.get("wolf", {})
+        if not sprite_set:
+            color = PALETTE["wolf_alert"] if wolf.alert else PALETTE["wolf"]
+            self.canvas.fill(color, pygame.Rect(body.x + 2, body.y + 3, 8, 7))
             return
 
-        color = PALETTE["wolf_alert"] if wolf.alert else PALETTE["wolf"]
-        self.canvas.fill((10, 14, 20), pygame.Rect(body.x + 1, body.y + 11, 10, 2))
-        self.canvas.fill(color, pygame.Rect(body.x + 2, body.y + 3, 8, 7))
-        self.canvas.fill((220, 220, 220), pygame.Rect(body.x + 9, body.y + 4, 2, 2))
-        eye_col = (240, 90, 90) if wolf.alert else (220, 220, 220)
-        self.canvas.fill(eye_col, pygame.Rect(body.x + 9, body.y + 5, 1, 1))
+        if not wolf.alive:
+            corpse = sprite_set.get("corpse")
+            if corpse is not None:
+                self.draw_centered_sprite(body, corpse, 0)
+            self.canvas.fill((150, 92, 92), pygame.Rect(body.x + 3, body.y + 9, 2, 1))
+            return
+
+        direction = self.get_direction_key(pygame.Vector2(wolf.facing_x, wolf.facing_y))
+        moving = (abs(wolf.facing_x) + abs(wolf.facing_y)) > 0.01
+
+        if direction in {"left", "right"}:
+            frame = "walk_a" if int(self.time_alive * 8.0) % 2 == 0 and moving else "walk_b"
+            if not moving:
+                frame = "idle"
+            if wolf.alert:
+                frame = "alert"
+            sprite = sprite_set.get(f"{direction}_{frame}", sprite_set.get(f"{direction}_idle"))
+        else:
+            frame = "alert" if wolf.alert else "idle"
+            sprite = sprite_set.get(f"{direction}_{frame}", sprite_set.get("down_idle"))
+
+        if sprite is not None:
+            bob = -1 if wolf.alert and int(self.time_alive * 12.0) % 2 == 0 else 0
+            self.draw_centered_sprite(body, sprite, bob)
+            if wolf.alert:
+                self.canvas.fill((84, 24, 24), pygame.Rect(body.x + 1, body.y + 11, 12, 1))
 
     def draw_player_sprite(self) -> None:
         base = self.player
-        player_color = PALETTE["player_hurt"] if self.damage_flash > 0 else PALETTE["player"]
         moving = self.player_vel.length() > 8.0
-        stride = int(math.sin(self.walk_cycle * 7.4) * 2) if moving else 0
-        bob = int(abs(math.sin(self.walk_cycle * 7.4)) * 1.4) if moving else 0
-
         facing = self.last_dir if self.last_dir.length_squared() > 0 else pygame.Vector2(1, 0)
         facing = facing.normalize()
+        direction = self.get_direction_key(facing)
+        sprite_set = self.entity_sprites.get("player", {})
 
-        head_y = base.y + 1 - bob
-        torso_y = base.y + 5 - bob
-        leg_y = base.y + 9
+        self.canvas.fill((10, 12, 18), pygame.Rect(base.centerx - 5, base.y + 11, 10, 2))
+        if moving:
+            self.canvas.fill((10, 12, 18), pygame.Rect(base.centerx + 3, base.y + 11, 3, 1))
 
-        # Grounded shadow keeps movement readable.
-        self.canvas.fill((10, 14, 20), pygame.Rect(base.x + 1, base.y + 11, 8, 2))
+        if sprite_set:
+            if self.damage_flash > 0 and direction in {"left", "right"}:
+                frame = f"{direction}_hurt"
+            else:
+                cycle = "walk_a" if int(self.time_alive * 8.0) % 2 == 0 else "walk_b"
+                if not moving:
+                    cycle = "idle"
+                frame = f"{direction}_{cycle}"
+            sprite = sprite_set.get(frame, sprite_set.get("right_idle"))
+            if sprite is not None:
+                hurt_shift = -1 if self.damage_flash > 0 else 0
+                limp = 1 if self.health < self.max_health * 0.3 and int(self.time_alive * 5.0) % 2 == 0 else 0
+                self.draw_centered_sprite(base, sprite, hurt_shift + limp)
 
-        # Legs animate with stride to show walking direction.
-        self.canvas.fill((42, 52, 68), pygame.Rect(base.x + 2 + stride, leg_y, 2, 3))
-        self.canvas.fill((42, 52, 68), pygame.Rect(base.x + 6 - stride, leg_y, 2, 3))
+        gear_y = base.y + 6
+        if self.has_flashlight and self.equipped_item != "flashlight":
+            belt_x = base.centerx + 2 if direction != "left" else base.centerx - 4
+            self.canvas.fill((106, 118, 126), pygame.Rect(belt_x, gear_y + 2, 1, 3))
+            self.canvas.fill(PALETTE["flashlight"], pygame.Rect(belt_x, gear_y + 1, 1, 1))
+        if self.has_knife and self.equipped_item != "knife":
+            knife_x = base.centerx - 4 if direction != "right" else base.centerx + 2
+            self.canvas.fill((184, 186, 190), pygame.Rect(knife_x, gear_y + 2, 1, 2))
 
-        self.canvas.fill(player_color, pygame.Rect(base.x + 1, torso_y, 8, 5))
-        self.canvas.fill((141, 96, 75), pygame.Rect(base.x + 2, head_y, 6, 4))
-
-        arm_y = torso_y + 1
-        self.canvas.fill((126, 84, 66), pygame.Rect(base.x + 1, arm_y, 1, 3))
-        self.canvas.fill((126, 84, 66), pygame.Rect(base.x + 8, arm_y, 1, 3))
-
-        eye_col = (236, 236, 232)
-        if abs(facing.x) > abs(facing.y):
-            eye_x = base.x + (6 if facing.x > 0 else 3)
-            self.canvas.fill(eye_col, pygame.Rect(eye_x, head_y + 2, 1, 1))
-            self.canvas.fill(eye_col, pygame.Rect(eye_x, head_y + 3, 1, 1))
-        elif facing.y < 0:
-            self.canvas.fill(eye_col, pygame.Rect(base.x + 3, head_y + 1, 1, 1))
-            self.canvas.fill(eye_col, pygame.Rect(base.x + 6, head_y + 1, 1, 1))
-        else:
-            self.canvas.fill(eye_col, pygame.Rect(base.x + 3, head_y + 3, 1, 1))
-            self.canvas.fill(eye_col, pygame.Rect(base.x + 6, head_y + 3, 1, 1))
+        hand_point = pygame.Vector2(base.centerx + facing.x * 3, base.y + 7 + facing.y * 2)
+        if self.equipped_item == "flashlight" and self.has_flashlight:
+            flash_body = pygame.Rect(int(hand_point.x), int(hand_point.y), 3, 2)
+            self.canvas.fill((118, 132, 144), flash_body)
+            lens_x = flash_body.right if facing.x >= 0 else flash_body.x - 1
+            self.canvas.fill(PALETTE["flashlight"], pygame.Rect(lens_x, flash_body.y, 1, 2))
+            if self.flashlight_on and self.battery > 0:
+                beam_tip = hand_point + facing * 7
+                pygame.draw.line(self.canvas, (242, 232, 178), (int(hand_point.x + 1), int(hand_point.y + 1)), (int(beam_tip.x), int(beam_tip.y)))
 
         if self.attack_anim > 0:
             t = 1.0 - (self.attack_anim / max(0.001, self.attack_duration))
             swing = math.sin(t * math.pi)
-            start = pygame.Vector2(base.centerx, torso_y + 2)
+            start = pygame.Vector2(base.centerx, base.y + 7)
             swing_dir = self.attack_dir if self.attack_dir.length_squared() > 0 else facing
             tip = start + swing_dir * (5.0 + swing * 5.0)
             knife_tip = tip + swing_dir * 2.2
+            trail = tip + pygame.Vector2(-swing_dir.y, swing_dir.x) * (2.0 + swing * 2.0)
+            pygame.draw.line(self.canvas, (244, 236, 218), (int(start.x), int(start.y)), (int(trail.x), int(trail.y)))
             pygame.draw.line(self.canvas, (220, 224, 232), (int(start.x), int(start.y)), (int(tip.x), int(tip.y)))
             pygame.draw.line(self.canvas, (245, 245, 238), (int(tip.x), int(tip.y)), (int(knife_tip.x), int(knife_tip.y)))
             spark = knife_tip + pygame.Vector2(-swing_dir.y, swing_dir.x) * 1.2
@@ -2455,15 +3166,15 @@ class Game:
         self.shake_time = max(self.shake_time, duration)
 
     def draw_atmosphere_back(self) -> None:
-        # Vertical gradient builds mood and separates play-space from UI layers.
+        theme = self.get_area_theme()
+        top = shift_color(theme["ambient"], -6)
+        bottom = mix_color(theme["floor"], theme["wall"], 0.4)
         for y in range(INTERNAL_HEIGHT):
             t = y / INTERNAL_HEIGHT
-            r = int(7 + 12 * t)
-            g = int(10 + 14 * t)
-            b = int(17 + 20 * t)
-            pygame.draw.line(self.canvas, (r, g, b), (0, y), (INTERNAL_WIDTH, y))
+            pygame.draw.line(self.canvas, mix_color(top, bottom, t), (0, y), (INTERNAL_WIDTH, y))
 
     def draw_atmosphere_front(self) -> None:
+        theme = self.get_area_theme()
         vignette = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
         for i in range(9):
             alpha = 14 + i * 3
@@ -2479,6 +3190,10 @@ class Game:
         for y in range(0, INTERNAL_HEIGHT, 2):
             pygame.draw.line(vignette, (0, 0, 0, line_alpha), (0, y), (INTERNAL_WIDTH, y))
 
+        edge_glow = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+        edge_color = theme["danger"] if self.current_area in {"area2", "final"} else theme["accent"]
+        pygame.draw.rect(edge_glow, (edge_color[0], edge_color[1], edge_color[2], 18), pygame.Rect(1, 1, INTERNAL_WIDTH - 2, INTERNAL_HEIGHT - 2), 1)
+        vignette.blit(edge_glow, (0, 0))
         self.canvas.blit(vignette, (0, 0))
 
 
