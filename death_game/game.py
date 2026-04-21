@@ -661,7 +661,7 @@ class Game:
             "TAB Inventory   F Equip",
             "L Labels   H Use Bandage",
         ]
-        self.intro_hint = "Press SPACE or E to start"
+        self.intro_hint = "Press ENTER to start"
         self.intro_timer = 8.5
         self.intro_fade_duration = 1.0
         self.damage_flash = 0.0
@@ -1139,7 +1139,8 @@ class Game:
             if choice == "leg":
                 self.player_speed = self.base_player_speed * 0.65
             elif choice == "arm":
-                self.attack_speed_mult = 1.7
+                # Attack speed -70% means attack interval is about 3.33x longer.
+                self.attack_speed_mult = 10.0 / 3.0
         return True
 
     def try_save_at_terminal(self) -> None:
@@ -1564,8 +1565,9 @@ class Game:
                     pygame.quit()
                     sys.exit(0)
 
-                if self.intro_timer > 0 and event.key in (pygame.K_SPACE, pygame.K_e, pygame.K_RETURN):
-                    self.intro_timer = 0.0
+                if self.intro_timer > 0 and self.state == "explore":
+                    if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        self.intro_timer = 0.0
                     continue
 
                 if event.key == pygame.K_l:
@@ -1645,7 +1647,6 @@ class Game:
                 self.area_fade_phase = "none"
             return
 
-        self.intro_timer = max(0.0, self.intro_timer - dt)
         self.message_timer = max(0.0, self.message_timer - dt)
         self.damage_flash = max(0.0, self.damage_flash - dt)
         self.hit_cooldown = max(0.0, self.hit_cooldown - dt)
@@ -1961,8 +1962,6 @@ class Game:
                     self.sound.play("damage")
                     self.damage_flash = 0.16
                     self.hit_cooldown = 0.5
-                    self.message = "Wolf attack"
-                    self.message_timer = 0.8
                     self.trigger_shake(2.0, 0.15)
                     self.emit_particles(self.player.centerx, self.player.centery, 10, PALETTE["health_low"])
                     if self.health <= 0:
@@ -2082,9 +2081,10 @@ class Game:
             self.message = "Leg sacrificed: move speed reduced"
             self.message_timer = 2.2
         else:
-            self.attack_speed_mult = 1.7
+            # Attack speed -70% means attack interval is about 3.33x longer.
+            self.attack_speed_mult = 10.0 / 3.0
             self.choice_result = "arm"
-            self.message = "Arm sacrificed: attack speed reduced"
+            self.message = "Arm sacrificed: attack speed -70%"
             self.message_timer = 2.2
 
         self.set_objective_for_area()
@@ -2244,10 +2244,10 @@ class Game:
         panel_alpha = int(218 * fade_t)
         text_alpha = int(255 * fade_t)
 
-        panel_w = 274
-        panel_h = 112
+        panel_w = 300
+        panel_h = 132
         x = (INTERNAL_WIDTH - panel_w) // 2
-        y = (INTERNAL_HEIGHT - panel_h) // 2 + 8
+        y = (INTERNAL_HEIGHT - panel_h) // 2 + 4
 
         panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
         panel.fill((10, 16, 25, panel_alpha))
@@ -2256,9 +2256,9 @@ class Game:
 
         title = self.fit_text(self.intro_title, self.big_font, panel_w - 18)
         title_w, _ = self.big_font.size(title)
-        self.blit_pixel_text_on(self.canvas, title, x + (panel_w - title_w) // 2, y + 8, self.big_font, (236, 243, 250))
+        self.blit_pixel_text_on(self.canvas, title, x + (panel_w - title_w) // 2, y + 10, self.big_font, (236, 243, 250))
 
-        line_y = y + 30
+        line_y = y + 36
         for line in self.intro_lines:
             draw_line = self.fit_text(line, self.font, panel_w - 16)
             line_w, _ = self.font.size(draw_line)
@@ -2267,7 +2267,7 @@ class Game:
 
         hint = self.fit_text(self.intro_hint, self.small_font, panel_w - 16)
         hint_w, _ = self.small_font.size(hint)
-        self.blit_pixel_text_on(self.canvas, hint, x + (panel_w - hint_w) // 2, y + panel_h - 13, self.small_font, (190, 208, 226))
+        self.blit_pixel_text_on(self.canvas, hint, x + (panel_w - hint_w) // 2, y + panel_h - 14, self.small_font, (190, 208, 226))
 
         if text_alpha < 255:
             fade_surface = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
@@ -2358,7 +2358,7 @@ class Game:
 
         # --- TOP-RIGHT: Zone + Objective ---
         zone_code, zone_name, _ = self.get_area_meta()
-        info_w = 160
+        info_w = 186
         info_h = 28
         info_x = view_rect.right - info_w - 8
         info_y = view_rect.y + 8
@@ -2366,8 +2366,10 @@ class Game:
         info_surf.fill((10, 14, 22, 160))
         self.screen.blit(info_surf, (info_x, info_y))
         pygame.draw.rect(self.screen, (26, 42, 58), pygame.Rect(info_x, info_y, info_w, info_h), 1)
-        self.blit_pixel_text_on(self.screen, f"{zone_code}  {zone_name}", info_x + 6, info_y + 2, self.ui_small_font, (58, 90, 122))
-        self.blit_pixel_text_on(self.screen, self.objective, info_x + 6, info_y + 14, self.ui_small_font, (90, 122, 154))
+        zone_text = self.fit_text(f"{zone_code}  {zone_name}", self.ui_small_font, info_w - 12)
+        objective_text = self.fit_text(self.objective, self.ui_small_font, info_w - 12)
+        self.blit_pixel_text_on(self.screen, zone_text, info_x + 6, info_y + 2, self.ui_small_font, (58, 90, 122))
+        self.blit_pixel_text_on(self.screen, objective_text, info_x + 6, info_y + 14, self.ui_small_font, (90, 122, 154))
 
         # --- TOP-LEFT: Contextual Hint ---
         if self.active_hint and self.active_hint_fade > 0.01:
@@ -3008,7 +3010,7 @@ class Game:
         opt2_rect = pygame.Rect(px + 8, py + 66, 264, 22)
         self.draw_panel(opt2_rect, (28, 20, 20) if opt2_selected else (22, 18, 18), opt2_border)
         self.blit_text_shadow("[2] Cut arm", px + 14, py + 68, text_w)
-        self.blit_text_shadow("Attack speed 1.0s -> 1.7s (+70%)", px + 14, py + 78, text_w)
+        self.blit_text_shadow("Attack speed 1.0x -> 0.3x (-70%)", px + 14, py + 78, text_w)
 
         # Warning and footer
         self.blit_text_shadow("This cannot be undone", px + 12, py + 94, text_w)
