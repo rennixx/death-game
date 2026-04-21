@@ -22,6 +22,8 @@ INTERNAL_HEIGHT = 180
 SCALE = 4
 GAME_VIEW_WIDTH = INTERNAL_WIDTH * SCALE
 GAME_VIEW_HEIGHT = INTERNAL_HEIGHT * SCALE
+CAMERA_VIEW_WIDTH = 256
+CAMERA_VIEW_HEIGHT = 144
 WINDOW_WIDTH = GAME_VIEW_WIDTH + 320
 WINDOW_HEIGHT = GAME_VIEW_HEIGHT + 180
 TILE_SIZE = 16
@@ -387,7 +389,7 @@ class SoundManager:
     """Procedural audio using numpy. Gracefully degrades if numpy unavailable."""
 
     def __init__(self) -> None:
-        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.sounds: dict[str, list[pygame.mixer.Sound]] = {}
         self.enabled = HAS_NUMPY
         if not self.enabled:
             return
@@ -416,57 +418,156 @@ class SoundManager:
         env[-rel_samples:] = np.linspace(1, 0, rel_samples)
         return env.tolist()
 
+    def _envelope_array(self, n: int, attack: float = 0.05, release: float = 0.3) -> np.ndarray:
+        return np.array(self._env(n, attack, release))
+
+    def _lowpass(self, arr: np.ndarray, alpha: float) -> np.ndarray:
+        if len(arr) == 0:
+            return arr
+        out = np.empty_like(arr)
+        out[0] = arr[0]
+        for i in range(1, len(arr)):
+            out[i] = out[i - 1] + alpha * (arr[i] - out[i - 1])
+        return out
+
+    def _highpass(self, arr: np.ndarray, alpha: float) -> np.ndarray:
+        if len(arr) == 0:
+            return arr
+        low = self._lowpass(arr, alpha)
+        return arr - low
+
+    def _tone(
+        self,
+        freq_start: float,
+        freq_end: float,
+        duration: float,
+        amplitude: float = 0.5,
+        harmonics: tuple[float, ...] = (),
+    ) -> np.ndarray:
+        sr = 22050
+        n = max(1, int(sr * duration))
+        t = np.linspace(0, duration, n, endpoint=False)
+        freq = np.linspace(freq_start, freq_end, n)
+        base = np.sin(2 * np.pi * freq * t) * amplitude
+        for idx, harmonic_amp in enumerate(harmonics, start=2):
+            base += np.sin(2 * np.pi * freq * idx * t) * harmonic_amp
+        return base
+
+    def _noise(self, duration: float, amplitude: float = 0.4, color: str = "white") -> np.ndarray:
+        sr = 22050
+        n = max(1, int(sr * duration))
+        arr = np.random.uniform(-1.0, 1.0, n) * amplitude
+        if color == "low":
+            arr = self._lowpass(arr, 0.06)
+        elif color == "mid":
+            arr = self._lowpass(arr, 0.14)
+        elif color == "high":
+            arr = self._highpass(arr, 0.08)
+        return arr
+
+    def _normalize(self, arr: np.ndarray, peak: float = 0.9) -> np.ndarray:
+        max_val = float(np.max(np.abs(arr))) if len(arr) else 0.0
+        if max_val <= 1e-6:
+            return arr
+        return arr * (peak / max_val)
+
+    def _fit_length(self, arr: np.ndarray, n: int) -> np.ndarray:
+        if len(arr) == n:
+            return arr
+        if len(arr) > n:
+            return arr[:n]
+        return np.pad(arr, (0, n - len(arr)))
+
+    def _add_sound(self, name: str, wave: np.ndarray, volume: float = 1.0) -> None:
+        shaped = self._normalize(wave * volume, 0.88)
+        self.sounds.setdefault(name, []).append(self._make_sound(shaped.tolist()))
+
     def _generate_all(self) -> None:
         sr = 22050
 
-        # Footstep: 50ms noise burst
-        n = int(sr * 0.05)
-        noise = np.random.uniform(-0.3, 0.3, n).tolist()
-        self.sounds["footstep"] = self._make_sound([s * e for s, e in zip(noise, self._env(n, 0.1, 0.6))])
+        # Footsteps: heel thump + cloth/grit scrape, with slight variants.
+        for base_freq, scrape_amt, gain in ((86, 0.16, 0.50), (94, 0.14, 0.46), (78, 0.18, 0.52)):
+            duration = 0.12
+            n = int(sr * duration)
+            thump = self._tone(base_freq, base_freq - 18, duration, 0.65, (0.14,))
+            grit = self._noise(duration, scrape_amt, "mid")
+            grit = self._highpass(grit, 0.05)
+            heel_click = self._noise(0.028, 0.12, "high")
+            heel_pad = np.pad(heel_click, (0, max(0, n - len(heel_click))))
+            env = self._envelope_array(n, 0.01, 0.72)
+            footstep = (thump * 0.72 + grit * 0.34 + heel_pad[:n] * 0.7) * env
+            self._add_sound("footstep", footstep, gain)
 
-        # Pickup: 200ms ascending sine 440->880Hz
-        n = int(sr * 0.2)
-        t = np.linspace(0, 0.2, n)
-        freq = np.linspace(440, 880, n)
-        wave = np.sin(2 * np.pi * freq * t) * 0.4
-        self.sounds["pickup"] = self._make_sound((wave * np.array(self._env(n, 0.05, 0.3))).tolist())
+        # Pickup: subtle metallic utility pickup rather than arcade chirp.
+        n = int(sr * 0.17)
+        pickup = self._fit_length(self._tone(620, 980, 0.17, 0.34, (0.10,)), n)
+        pickup += self._fit_length(self._tone(930, 1460, 0.12, 0.14), n)
+        pickup += self._fit_length(self._noise(0.05, 0.04, "high"), n)
+        pickup *= self._envelope_array(n, 0.02, 0.48)
+        self._add_sound("pickup", pickup, 0.55)
 
-        # Damage: 150ms low sine 80Hz + noise
-        n = int(sr * 0.15)
-        t = np.linspace(0, 0.15, n)
-        wave = (np.sin(2 * np.pi * 80 * t) * 0.5 + np.random.uniform(-0.2, 0.2, n) * 0.3)
-        self.sounds["damage"] = self._make_sound((wave * np.array(self._env(n, 0.02, 0.4))).tolist())
+        # Damage: body hit with bass thud and tearing transient.
+        n = int(sr * 0.18)
+        body_hit = self._tone(120, 58, 0.18, 0.58, (0.22,))
+        crack = self._noise(0.08, 0.24, "high")
+        crack = np.pad(crack, (0, max(0, n - len(crack))))
+        pain = self._tone(210, 150, 0.07, 0.16)
+        pain = np.pad(pain, (0, max(0, n - len(pain))))
+        damage = (body_hit + crack[:n] * 0.9 + pain[:n] * 0.55) * self._envelope_array(n, 0.01, 0.52)
+        self._add_sound("damage", damage, 0.64)
 
-        # Door: 100ms click + 80ms scrape
-        n1 = int(sr * 0.1)
-        n2 = int(sr * 0.08)
-        click = np.random.uniform(-0.5, 0.5, n1) * np.array(self._env(n1, 0.01, 0.5))
-        scrape = np.random.uniform(-0.15, 0.15, n2) * np.sin(2 * np.pi * 200 * np.linspace(0, 0.08, n2))
-        combined = np.concatenate([click, scrape])
-        self.sounds["door"] = self._make_sound(combined.tolist())
+        # Slash: fast blade whoosh.
+        n = int(sr * 0.11)
+        slash = self._fit_length(self._noise(0.11, 0.20, "high"), n)
+        slash += self._fit_length(self._tone(900, 420, 0.11, 0.12), n)
+        slash *= self._envelope_array(n, 0.01, 0.82)
+        self._add_sound("slash", slash, 0.48)
 
-        # Wolf growl: 300ms low rumble 60Hz + noise with tremolo
-        n = int(sr * 0.3)
-        t = np.linspace(0, 0.3, n)
-        tremolo = 0.5 + 0.5 * np.sin(2 * np.pi * 8 * t)
-        wave = (np.sin(2 * np.pi * 60 * t) * 0.4 + np.random.uniform(-0.1, 0.1, n) * 0.2) * tremolo
-        self.sounds["growl"] = self._make_sound((wave * np.array(self._env(n, 0.05, 0.3))).tolist())
+        # Stab: slash transient plus wet impact.
+        n = int(sr * 0.14)
+        stab_body = self._tone(180, 96, 0.14, 0.44, (0.16,))
+        stab_noise = self._noise(0.09, 0.20, "mid")
+        stab_noise = np.pad(stab_noise, (0, max(0, n - len(stab_noise))))
+        stab_click = self._noise(0.025, 0.16, "high")
+        stab_click = np.pad(stab_click, (0, max(0, n - len(stab_click))))
+        stab = (stab_body + stab_noise[:n] * 0.55 + stab_click[:n] * 0.7) * self._envelope_array(n, 0.01, 0.5)
+        self._add_sound("stab", stab, 0.62)
 
-        # Save chime: C5->E5->G5 ascending, repeated with gap
+        # Door: latch click, hinge scrape, and a hollow panel thud.
+        n = int(sr * 0.24)
+        latch = self._noise(0.035, 0.22, "high")
+        latch = np.pad(latch, (0, max(0, n - len(latch))))
+        hinge = self._fit_length(self._tone(320, 210, 0.14, 0.18), n)
+        hinge += self._fit_length(self._noise(0.14, 0.08, "mid"), n)
+        thud = self._tone(96, 58, 0.18, 0.42, (0.12,))
+        thud = np.pad(thud, (0, max(0, n - len(thud))))
+        door = (latch[:n] * 0.8 + hinge[:n] * 0.7 + thud[:n]) * self._envelope_array(n, 0.01, 0.44)
+        self._add_sound("door", door, 0.56)
+
+        # Wolf growl: layered rumble with a rough snarl edge.
+        n = int(sr * 0.38)
+        t = np.linspace(0, 0.38, n, endpoint=False)
+        tremolo = 0.72 + 0.28 * np.sin(2 * np.pi * 7.4 * t)
+        rumble = self._tone(72, 58, 0.38, 0.34, (0.22,))
+        snarl = self._noise(0.38, 0.16, "mid")
+        snarl = self._highpass(snarl, 0.04)
+        growl = (rumble + snarl * 0.55) * tremolo * self._envelope_array(n, 0.04, 0.36)
+        self._add_sound("growl", growl, 0.58)
+
+        # Save chime: still synthetic, but softer and less toy-like.
         notes = [523.25, 659.25, 783.99]
         samples_per = int(sr * 0.12)
         all_samples = []
         for freq in notes:
-            t = np.linspace(0, 0.12, samples_per)
-            wave = np.sin(2 * np.pi * freq * t) * 0.3
-            all_samples.extend((wave * np.array(self._env(samples_per, 0.02, 0.3))).tolist())
+            wave = self._tone(freq, freq * 1.01, 0.12, 0.24, (0.08,))
+            all_samples.extend((wave * self._envelope_array(samples_per, 0.02, 0.3)).tolist())
         gap = [0.0] * int(sr * 0.02)
-        self.sounds["save"] = self._make_sound(all_samples + gap + all_samples[:samples_per])
+        self._add_sound("save", np.array(all_samples + gap + all_samples[:samples_per]), 0.52)
 
     def play(self, name: str) -> None:
         if not self.enabled or name not in self.sounds:
             return
-        self.sounds[name].play()
+        random.choice(self.sounds[name]).play()
 
 
 class Game:
@@ -581,6 +682,9 @@ class Game:
         self.zone_card_subtitle = ""
         self.zone_card_timer = 0.0
         self.visited_areas: set[str] = set()
+        self.current_viewport_world = pygame.Rect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+        self.current_render_scale = float(SCALE)
+        self.camera_center = pygame.Vector2(INTERNAL_WIDTH * 0.5, INTERNAL_HEIGHT * 0.5)
 
         self.locked_door_tile = (10, 1)
         self.exit_tile = (10, 1)
@@ -1161,6 +1265,7 @@ class Game:
         self.player.y = spawn_tile[1] * TILE_SIZE + 2
         self.player_pos.update(float(self.player.x), float(self.player.y))
         self.player_vel.update(0, 0)
+        self.reset_camera(immediate=True)
 
         if area_id == "area2":
             self.setup_area2_lasers()
@@ -1587,6 +1692,7 @@ class Game:
         else:
             self.footstep_timer = 0.0
         self.move_player(self.player_vel.x * dt, self.player_vel.y * dt)
+        self.update_camera(dt)
 
         self.collect_pickups()
         self.check_traps()
@@ -1886,9 +1992,11 @@ class Game:
             int(self.player.centery + self.last_dir.y * reach),
         )
 
+        hit_any = False
         for wolf in self.wolves:
             if wolf.alive and attack_rect.colliderect(wolf.rect):
                 wolf.alive = False
+                hit_any = True
                 self.message = "Wolf neutralized"
                 self.message_timer = 0.9
                 self.trigger_shake(1.8, 0.12)
@@ -1897,6 +2005,7 @@ class Game:
         slash_x = self.player.centerx + self.attack_dir.x * 10
         slash_y = self.player.centery + self.attack_dir.y * 10
         self.emit_particles(slash_x, slash_y, 6, (232, 232, 224))
+        self.sound.play("stab" if hit_any else "slash")
 
         self.attack_cooldown = 0.45 * self.attack_speed_mult
 
@@ -2002,7 +2111,24 @@ class Game:
             flash.fill((199, 70, 70, alpha))
             self.canvas.blit(flash, (0, 0))
 
-        scaled = pygame.transform.scale(self.canvas, (GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT))
+        zoom_gameplay = (
+            self.state in {"explore", "pause", "dead", "won"}
+            and self.intro_timer <= 0
+            and self.inventory_anim <= 0.01
+            and self.dilemma_anim <= 0.01
+        )
+
+        if zoom_gameplay:
+            viewport_world = self.get_camera_world_rect()
+            view_surface = pygame.Surface((viewport_world.width, viewport_world.height))
+            view_surface.blit(self.canvas, (0, 0), viewport_world)
+        else:
+            viewport_world = pygame.Rect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+            view_surface = self.canvas
+
+        self.current_viewport_world = viewport_world
+        self.current_render_scale = GAME_VIEW_WIDTH / viewport_world.width
+        scaled = pygame.transform.scale(view_surface, (GAME_VIEW_WIDTH, GAME_VIEW_HEIGHT))
 
         window_w, window_h = self.screen.get_size()
         view_x = (window_w - GAME_VIEW_WIDTH) // 2
@@ -2015,8 +2141,8 @@ class Game:
         pygame.draw.rect(self.screen, (62, 78, 96), frame_rect, 2)
 
         if self.shake_strength > 0:
-            ox = int(random.uniform(-self.shake_strength, self.shake_strength) * SCALE)
-            oy = int(random.uniform(-self.shake_strength, self.shake_strength) * SCALE)
+            ox = int(random.uniform(-self.shake_strength, self.shake_strength) * self.current_render_scale)
+            oy = int(random.uniform(-self.shake_strength, self.shake_strength) * self.current_render_scale)
             self.screen.blit(scaled, (view_x + ox, view_y + oy))
         else:
             self.screen.blit(scaled, (view_x, view_y))
@@ -2039,6 +2165,74 @@ class Game:
             self.draw_pause_menu(view_rect)
 
         pygame.display.flip()
+
+    def get_camera_target_center(self) -> pygame.Vector2:
+        look_ahead = self.last_dir if self.last_dir.length_squared() > 0 else pygame.Vector2(0, 0)
+        return pygame.Vector2(
+            self.player.centerx + look_ahead.x * 12,
+            self.player.centery + look_ahead.y * 8,
+        )
+
+    def clamp_camera_center(self, center: pygame.Vector2) -> pygame.Vector2:
+        view_w = min(CAMERA_VIEW_WIDTH, self.world_width)
+        view_h = min(CAMERA_VIEW_HEIGHT, self.world_height)
+        half_w = view_w * 0.5
+        half_h = view_h * 0.5
+
+        if self.world_width <= view_w:
+            clamped_x = self.world_width * 0.5
+        else:
+            clamped_x = max(half_w, min(self.world_width - half_w, center.x))
+
+        if self.world_height <= view_h:
+            clamped_y = self.world_height * 0.5
+        else:
+            clamped_y = max(half_h, min(self.world_height - half_h, center.y))
+
+        return pygame.Vector2(clamped_x, clamped_y)
+
+    def reset_camera(self, immediate: bool = False) -> None:
+        target = self.clamp_camera_center(self.get_camera_target_center())
+        if immediate:
+            self.camera_center.update(target)
+        else:
+            self.camera_center += (target - self.camera_center) * 0.6
+            self.camera_center.update(self.clamp_camera_center(self.camera_center))
+
+    def update_camera(self, dt: float) -> None:
+        target = self.clamp_camera_center(self.get_camera_target_center())
+        desired = pygame.Vector2(self.camera_center)
+        deadzone_x = 18.0
+        deadzone_y = 10.0
+
+        if target.x < self.camera_center.x - deadzone_x:
+            desired.x = target.x + deadzone_x
+        elif target.x > self.camera_center.x + deadzone_x:
+            desired.x = target.x - deadzone_x
+
+        if target.y < self.camera_center.y - deadzone_y:
+            desired.y = target.y + deadzone_y
+        elif target.y > self.camera_center.y + deadzone_y:
+            desired.y = target.y - deadzone_y
+
+        follow = min(1.0, dt * 7.0)
+        self.camera_center += (desired - self.camera_center) * follow
+        self.camera_center.update(self.clamp_camera_center(self.camera_center))
+
+    def get_camera_world_rect(self) -> pygame.Rect:
+        view_w = min(CAMERA_VIEW_WIDTH, self.world_width)
+        view_h = min(CAMERA_VIEW_HEIGHT, self.world_height)
+        x = int(round(self.camera_center.x - view_w * 0.5))
+        y = int(round(self.camera_center.y - view_h * 0.5))
+        x = max(0, min(self.world_width - view_w, x))
+        y = max(0, min(self.world_height - view_h, y))
+        return pygame.Rect(x, y, view_w, view_h)
+
+    def world_to_screen(self, world_x: float, world_y: float, view_rect: pygame.Rect) -> tuple[int, int]:
+        scale = self.current_render_scale
+        sx = int(view_rect.x + (world_x - self.current_viewport_world.x) * scale)
+        sy = int(view_rect.y + (world_y - self.current_viewport_world.y) * scale)
+        return sx, sy
 
     def draw_intro_overlay(self) -> None:
         if self.intro_timer <= 0 or self.state != "explore":
@@ -2222,8 +2416,7 @@ class Game:
         bubble_w = max(self.ui_font.size(line)[0] for line in lines) + 12
         bubble_h = line_h * len(lines) + 7
 
-        player_screen_x = view_rect.x + self.player.centerx * SCALE
-        player_screen_y = view_rect.y + self.player.y * SCALE
+        player_screen_x, player_screen_y = self.world_to_screen(self.player.centerx, self.player.y, view_rect)
         rise = int((1.0 - self.banner_anim) * 10)
 
         bubble_x = player_screen_x - bubble_w // 2
@@ -2320,8 +2513,7 @@ class Game:
 
     def draw_world_labels_screen(self, view_rect: pygame.Rect) -> None:
         for text, cx, cy in self.collect_world_labels():
-            sx = view_rect.x + cx * SCALE
-            sy = view_rect.y + cy * SCALE
+            sx, sy = self.world_to_screen(cx, cy, view_rect)
             self.draw_label_on_screen(text, sx, sy)
 
     def draw_label_on_screen(self, text: str, center_x: int, y: int) -> None:
@@ -2527,35 +2719,50 @@ class Game:
         theme: dict[str, tuple[int, int, int]],
     ) -> None:
         rect = pygame.Rect(tile_x * TILE_SIZE, tile_y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 2, rect.y + 12, 12, 2))
+        shadow_y = rect.y + 12
         if kind == "desk":
-            self.canvas.fill((96, 74, 62), pygame.Rect(rect.x + 1, rect.y + 6, 14, 4))
-            self.canvas.fill((42, 50, 60), pygame.Rect(rect.x + 4, rect.y + 2, 8, 5))
-            self.canvas.fill(theme["accent"], pygame.Rect(rect.x + 10, rect.y + 4, 1, 1))
-            self.canvas.fill((80, 58, 48), pygame.Rect(rect.x + 2, rect.y + 10, 2, 4))
-            self.canvas.fill((80, 58, 48), pygame.Rect(rect.x + 12, rect.y + 10, 2, 4))
-            self.canvas.fill((148, 120, 86), pygame.Rect(rect.x + 3, rect.y + 7, 10, 1))
+            top = pygame.Rect(rect.x - 1, rect.y + 6, 18, 4)
+            self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 1, shadow_y, 14, 2))
+            self.canvas.fill((96, 74, 62), top)
+            self.canvas.fill((42, 50, 60), pygame.Rect(rect.x + 4, rect.y + 1, 9, 6))
+            self.canvas.fill(theme["accent"], pygame.Rect(rect.x + 11, rect.y + 3, 1, 1))
+            self.canvas.fill((80, 58, 48), pygame.Rect(rect.x + 1, rect.y + 10, 2, 4))
+            self.canvas.fill((80, 58, 48), pygame.Rect(rect.x + 13, rect.y + 10, 2, 4))
+            self.canvas.fill((148, 120, 86), pygame.Rect(top.x + 2, top.y + 1, 12, 1))
         elif kind == "cabinet":
-            self.canvas.fill((86, 84, 92), pygame.Rect(rect.x + 3, rect.y + 1, 10, 13))
-            self.canvas.fill((124, 122, 130), pygame.Rect(rect.x + 4, rect.y + 2, 8, 2))
-            self.canvas.fill((54, 52, 58), pygame.Rect(rect.x + 7, rect.y + 4, 1, 8))
-            self.canvas.fill((190, 178, 136), pygame.Rect(rect.x + 10, rect.y + 6, 1, 2))
+            cab = pygame.Rect(rect.x + 2, rect.y, 12, 15)
+            self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 3, shadow_y, 10, 2))
+            self.canvas.fill((86, 84, 92), cab)
+            self.canvas.fill((124, 122, 130), pygame.Rect(cab.x + 1, cab.y + 1, cab.width - 2, 2))
+            self.canvas.fill((54, 52, 58), pygame.Rect(cab.centerx - 1, cab.y + 3, 1, cab.height - 5))
+            self.canvas.fill((190, 178, 136), pygame.Rect(cab.right - 3, cab.y + 6, 1, 2))
+            self.canvas.fill((190, 178, 136), pygame.Rect(cab.x + 2, cab.y + 6, 1, 2))
         elif kind == "bed":
-            self.canvas.fill((82, 58, 56), pygame.Rect(rect.x + 1, rect.y + 3, 14, 10))
-            self.canvas.fill((206, 206, 194), pygame.Rect(rect.x + 2, rect.y + 4, 12, 7))
-            self.canvas.fill((226, 226, 214), pygame.Rect(rect.x + 2, rect.y + 4, 4, 3))
-            self.canvas.fill(theme["danger"], pygame.Rect(rect.x + 9, rect.y + 9, 3, 1))
+            bed = pygame.Rect(rect.x - 3, rect.y + 2, 22, 11)
+            self.canvas.fill((12, 16, 20), pygame.Rect(bed.x + 2, bed.bottom - 1, bed.width - 4, 2))
+            self.canvas.fill((82, 58, 56), bed)
+            self.canvas.fill((64, 42, 40), pygame.Rect(bed.x, bed.y + 1, 2, bed.height - 2))
+            self.canvas.fill((206, 206, 194), pygame.Rect(bed.x + 2, bed.y + 1, bed.width - 4, 8))
+            self.canvas.fill((228, 228, 218), pygame.Rect(bed.x + 2, bed.y + 1, 6, 4))
+            self.canvas.fill((186, 180, 172), pygame.Rect(bed.x + 9, bed.y + 2, 8, 5))
+            self.canvas.fill((170, 132, 126), pygame.Rect(bed.x + 5, bed.y + 8, 10, 2))
+            self.canvas.fill(theme["danger"], pygame.Rect(bed.x + 15, bed.y + 8, 3, 1))
         elif kind == "freezer":
             freezer_key = (self.current_area, tile_x, tile_y)
             charges = self.freezer_charges.get(freezer_key, 0)
             light_col = theme["safe"] if charges > 0 else (118, 126, 136)
-            self.canvas.fill((76, 92, 108), pygame.Rect(rect.x + 2, rect.y + 1, 12, 13))
-            pygame.draw.rect(self.canvas, (150, 178, 198), pygame.Rect(rect.x + 2, rect.y + 1, 12, 13), 1)
-            self.canvas.fill((220, 232, 240), pygame.Rect(rect.x + 3, rect.y + 2, 10, 1))
-            self.canvas.fill(light_col, pygame.Rect(rect.x + 6, rect.y + 5, 4, 3))
-            self.canvas.fill((196, 210, 226), pygame.Rect(rect.x + 4, rect.y + 3, 2, 1))
+            body = pygame.Rect(rect.x + 1, rect.y, 14, 15)
+            self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 2, shadow_y, 12, 2))
+            self.canvas.fill((76, 92, 108), body)
+            pygame.draw.rect(self.canvas, (150, 178, 198), body, 1)
+            self.canvas.fill((220, 232, 240), pygame.Rect(body.x + 1, body.y + 1, body.width - 2, 1))
+            self.canvas.fill(light_col, pygame.Rect(body.x + 5, body.y + 5, 4, 3))
+            self.canvas.fill((196, 210, 226), pygame.Rect(body.x + 2, body.y + 3, 3, 1))
         else:
-            self.canvas.fill((108, 84, 66), pygame.Rect(rect.x + 4, rect.y + 6, 8, 4))
+            seat = pygame.Rect(rect.x + 3, rect.y + 6, 10, 4)
+            self.canvas.fill((12, 16, 20), pygame.Rect(rect.x + 4, shadow_y, 8, 2))
+            self.canvas.fill((108, 84, 66), seat)
+            self.canvas.fill((132, 104, 82), pygame.Rect(seat.x + 1, seat.y + 1, seat.width - 2, 1))
             self.canvas.fill((84, 62, 46), pygame.Rect(rect.x + 5, rect.y + 10, 1, 4))
             self.canvas.fill((84, 62, 46), pygame.Rect(rect.x + 10, rect.y + 10, 1, 4))
 
