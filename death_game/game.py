@@ -3249,10 +3249,15 @@ class Game:
         theme: dict[str, tuple[int, int, int]],
     ) -> None:
         pulse = int((math.sin(self.time_alive * 3.1) + 1.0) * 0.5 * 24)
-        slab_fill = mix_color(theme["wall"], theme["accent"], 0.2 if locked else 0.38)
+        slab_fill = mix_color(theme["wall"], theme["accent"], 0.35 if locked else 0.52)
         slab_border = theme["danger"] if locked else theme["safe"]
 
-        # Keep the tile readable as a doorway frame, with a slimmer vertical leaf in the center.
+        # Glow behind the door so it stands out from adjacent walls.
+        glow = pygame.Surface((tile_rect.width + 8, tile_rect.height + 8), pygame.SRCALPHA)
+        glow_col = theme["danger"] if locked else theme["safe"]
+        glow.fill((glow_col[0], glow_col[1], glow_col[2], 36))
+        self.canvas.blit(glow, (tile_rect.x - 4, tile_rect.y - 4))
+
         frame_color = mix_color(theme["wall_lo"], theme["wall"], 0.45)
         jamb_color = shift_color(frame_color, 8)
         self.canvas.fill(frame_color, tile_rect)
@@ -3260,7 +3265,7 @@ class Game:
         self.canvas.fill(jamb_color, pygame.Rect(tile_rect.right - 2, tile_rect.y, 2, tile_rect.height))
         self.canvas.fill(shift_color(frame_color, -8), pygame.Rect(tile_rect.x + 2, tile_rect.y + 1, tile_rect.width - 4, 2))
 
-        door_rect = pygame.Rect(tile_rect.x + 4, tile_rect.y + 1, 8, tile_rect.height - 2)
+        door_rect = pygame.Rect(tile_rect.x + 3, tile_rect.y + 1, 10, tile_rect.height - 2)
         self.canvas.fill(slab_fill, door_rect)
         pygame.draw.rect(self.canvas, slab_border, door_rect, 1)
         self.canvas.fill(shift_color(slab_fill, 18), pygame.Rect(door_rect.x + 1, door_rect.y + 1, door_rect.width - 2, 2))
@@ -3268,7 +3273,7 @@ class Game:
         self.canvas.fill((18, 24, 32), pygame.Rect(door_rect.centerx - 1, door_rect.y + 2, 2, door_rect.height - 4))
 
         if locked:
-            for offset in range(-2, 8, 3):
+            for offset in range(-2, 10, 3):
                 pygame.draw.line(
                     self.canvas,
                     shift_color(theme["danger"], 28),
