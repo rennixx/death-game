@@ -2960,6 +2960,24 @@ class Game:
             if has_item and item_name in self.sprite_cache and self.sprite_cache[item_name] is not None:
                 icon = pygame.transform.scale(self.sprite_cache[item_name], (18, 18))
                 self.screen.blit(icon, (sx + (slot_size - 18) // 2, slots_y + 4))
+            elif has_item and item_name == "knife":
+                kx = sx + (slot_size - 18) // 2
+                ky = slots_y + 4
+                handle_col = (139, 90, 43)
+                pygame.draw.rect(self.screen, handle_col, pygame.Rect(kx + 4, ky + 10, 6, 6))
+                pygame.draw.rect(self.screen, shift_color(handle_col, 22), pygame.Rect(kx + 4, ky + 10, 2, 4))
+                pygame.draw.rect(self.screen, (170, 160, 140), pygame.Rect(kx + 3, ky + 9, 9, 1))
+                blade = (210, 214, 220)
+                pygame.draw.rect(self.screen, blade, pygame.Rect(kx + 5, ky + 2, 7, 7))
+                pygame.draw.rect(self.screen, blade, pygame.Rect(kx + 7, ky, 5, 2))
+                pygame.draw.rect(self.screen, shift_color(blade, 18), pygame.Rect(kx + 7, ky + 2, 2, 4))
+                pygame.draw.rect(self.screen, (235, 238, 242), pygame.Rect(kx + 11, ky + 2, 1, 4))
+            elif has_item and item_name == "bandage":
+                bx = sx + (slot_size - 18) // 2
+                by = slots_y + 4
+                pygame.draw.rect(self.screen, PALETTE["bandage"], pygame.Rect(bx + 3, by + 3, 12, 8))
+                pygame.draw.rect(self.screen, (240, 240, 240), pygame.Rect(bx + 7, by + 5, 2, 4))
+                pygame.draw.rect(self.screen, (240, 240, 240), pygame.Rect(bx + 5, by + 6, 6, 2))
 
             num_text = str(idx + 1)
             self.blit_pixel_text_on(self.screen, num_text, sx + slot_size - 10, slots_y + 2, self.ui_small_font, (130, 148, 168) if has_item else (50, 60, 74))
