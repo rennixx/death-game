@@ -3883,6 +3883,20 @@ class Game:
         elif name == "flashlight":
             self.canvas.fill(color, pygame.Rect(rect.x + 2, rect.y + 2, 5, 3))
             self.canvas.fill((216, 216, 200), pygame.Rect(rect.x + 6, rect.y + 3, 2, 1))
+        elif name == "knife":
+            # Handle
+            handle_col = (139, 90, 43)
+            self.canvas.fill(handle_col, pygame.Rect(rect.x + 1, rect.y + 4, 3, 3))
+            self.canvas.fill(shift_color(handle_col, 22), pygame.Rect(rect.x + 1, rect.y + 4, 1, 2))
+            # Guard
+            self.canvas.fill((170, 160, 140), pygame.Rect(rect.x + 1, rect.y + 3, 4, 1))
+            # Blade
+            blade = (210, 214, 220)
+            self.canvas.fill(blade, pygame.Rect(rect.x + 2, rect.y + 1, 3, 2))
+            self.canvas.fill(blade, pygame.Rect(rect.x + 3, rect.y, 2, 1))
+            self.canvas.fill(shift_color(blade, 20), pygame.Rect(rect.x + 3, rect.y + 1, 1, 1))
+            # Edge highlight
+            self.canvas.fill((235, 238, 242), pygame.Rect(rect.x + 4, rect.y + 1, 1, 1))
         else:
             self.canvas.fill(color, pygame.Rect(rect.x + 2, rect.y + 2, 5, 4))
             self.canvas.fill((240, 240, 240), pygame.Rect(rect.x + 4, rect.y + 3, 1, 2))
@@ -4028,8 +4042,13 @@ class Game:
             self.canvas.fill((106, 118, 126), pygame.Rect(belt_x, gear_y + 2, 1, 3))
             self.canvas.fill(PALETTE["flashlight"], pygame.Rect(belt_x, gear_y + 1, 1, 1))
         if self.has_knife and self.equipped_item != "knife":
-            knife_x = base.centerx - 4 if direction != "right" else base.centerx + 2
-            self.canvas.fill((184, 186, 190), pygame.Rect(knife_x, gear_y + 2, 1, 2))
+            knife_x = base.centerx - 5 if direction != "right" else base.centerx + 2
+            # Sheath
+            self.canvas.fill((80, 60, 40), pygame.Rect(knife_x, gear_y + 1, 2, 4))
+            # Pommel
+            self.canvas.fill((139, 90, 43), pygame.Rect(knife_x, gear_y, 2, 1))
+            # Blade peeking out
+            self.canvas.fill((200, 204, 210), pygame.Rect(knife_x, gear_y - 1, 1, 1))
 
         hand_point = pygame.Vector2(base.centerx + facing.x * 3, base.y + 7 + facing.y * 2)
         if self.equipped_item == "flashlight" and self.has_flashlight:
@@ -4046,14 +4065,32 @@ class Game:
             swing = math.sin(t * math.pi)
             start = pygame.Vector2(base.centerx, base.y + 7)
             swing_dir = self.attack_dir if self.attack_dir.length_squared() > 0 else facing
-            tip = start + swing_dir * (5.0 + swing * 5.0)
-            knife_tip = tip + swing_dir * 2.2
-            trail = tip + pygame.Vector2(-swing_dir.y, swing_dir.x) * (2.0 + swing * 2.0)
-            pygame.draw.line(self.canvas, (244, 236, 218), (int(start.x), int(start.y)), (int(trail.x), int(trail.y)))
-            pygame.draw.line(self.canvas, (220, 224, 232), (int(start.x), int(start.y)), (int(tip.x), int(tip.y)))
-            pygame.draw.line(self.canvas, (245, 245, 238), (int(tip.x), int(tip.y)), (int(knife_tip.x), int(knife_tip.y)))
-            spark = knife_tip + pygame.Vector2(-swing_dir.y, swing_dir.x) * 1.2
-            self.canvas.fill((250, 248, 212), pygame.Rect(int(spark.x), int(spark.y), 1, 1))
+            perp = pygame.Vector2(-swing_dir.y, swing_dir.x)
+
+            grip = start + swing_dir * 2.0
+            guard = grip + swing_dir * 1.0
+            blade_base = guard + swing_dir * (2.0 + swing * 4.0)
+            blade_tip = blade_base + swing_dir * 2.5
+
+            # Handle
+            pygame.draw.line(self.canvas, (139, 90, 43), (int(start.x), int(start.y)), (int(grip.x), int(grip.y)), 2)
+            # Guard
+            guard_l = guard + perp * 1.5
+            guard_r = guard - perp * 1.5
+            pygame.draw.line(self.canvas, (170, 160, 140), (int(guard_l.x), int(guard_l.y)), (int(guard_r.x), int(guard_r.y)))
+            # Blade edges
+            blade_l = blade_base + perp * 1.2
+            blade_r = blade_base - perp * 1.2
+            pygame.draw.line(self.canvas, (200, 204, 212), (int(blade_l.x), int(blade_l.y)), (int(blade_tip.x), int(blade_tip.y)))
+            pygame.draw.line(self.canvas, (200, 204, 212), (int(blade_r.x), int(blade_r.y)), (int(blade_tip.x), int(blade_tip.y)))
+            # Blade fill
+            pygame.draw.line(self.canvas, (228, 232, 240), (int(guard.x), int(guard.y)), (int(blade_base.x), int(blade_base.y)))
+            pygame.draw.line(self.canvas, (238, 240, 245), (int(blade_base.x), int(blade_base.y)), (int(blade_tip.x), int(blade_tip.y)))
+            # Edge shine
+            pygame.draw.line(self.canvas, (248, 250, 252), (int(blade_base.x), int(blade_base.y)), (int(blade_tip.x), int(blade_tip.y)))
+            # Tip sparkle
+            if swing > 0.5:
+                self.canvas.fill((255, 252, 230), pygame.Rect(int(blade_tip.x), int(blade_tip.y), 1, 1))
 
     def draw_particles(self) -> None:
         for p in self.particles:
