@@ -1862,6 +1862,8 @@ class Game:
                         self.health = 100
                         self.battery = 50
                         self.bandages = 2
+                        self.player_speed = self.base_player_speed
+                        self.attack_speed_mult = 1.0
                         self.current_area = "l2_floor4"
                         self.load_area("l2_floor4")
                         self.state = "explore"
@@ -2359,6 +2361,7 @@ class Game:
                     wolf.x += move.x
                     wolf.y += move.y
 
+                self._resolve_wolf_walls(wolf)
                 if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
                     self.health = max(0, self.health - 12)
                     self.sound.play("damage")
@@ -2400,10 +2403,11 @@ class Game:
                 heading = to_player.normalize()
                 wolf.facing_x = heading.x
                 wolf.facing_y = heading.y
-                move = heading * 63.0 * dt
+                move = heading * 40.0 * dt
                 wolf.x += move.x
                 wolf.y += move.y
 
+        self._resolve_wolf_walls(wolf)
         if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
             self.health = max(0, self.health - 12)
             self.sound.play("damage")
@@ -2438,7 +2442,7 @@ class Game:
                 heading = to_player.normalize()
                 wolf.facing_x = heading.x
                 wolf.facing_y = heading.y
-                move = heading * 75.0 * dt
+                move = heading * 50.0 * dt
                 wolf.x += move.x
                 wolf.y += move.y
         else:
@@ -2451,11 +2455,11 @@ class Game:
                     heading = to_player.normalize()
                     wolf.facing_x = heading.x
                     wolf.facing_y = heading.y
-                    move = heading * 75.0 * dt
+                    move = heading * 50.0 * dt
                     wolf.x += move.x
                     wolf.y += move.y
             else:
-                patrol_speed = 20.0
+                patrol_speed = 12.0
                 origin = pygame.Vector2(wolf.patrol_origin_x, wolf.patrol_origin_y)
                 offset = wolf_vec.x - origin.x
                 if abs(offset) > 40:
@@ -2465,6 +2469,7 @@ class Game:
                     wolf.facing_y = 0
                 wolf.x += wolf.facing_x * patrol_speed * dt
 
+        self._resolve_wolf_walls(wolf)
         if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
             self.health = max(0, self.health - 12)
             self.sound.play("damage")
@@ -2474,6 +2479,26 @@ class Game:
             self.emit_particles(self.player.centerx, self.player.centery, 10, PALETTE["health_low"])
             if self.health <= 0:
                 self.respawn_at_checkpoint()
+
+    def _resolve_wolf_walls(self, wolf: Wolf) -> None:
+        margin = 2
+        for wall in self.walls:
+            wr = wolf.rect
+            if wr.colliderect(wall):
+                overlap_x = min(wr.right, wall.right) - max(wr.left, wall.left)
+                overlap_y = min(wr.bottom, wall.bottom) - max(wr.top, wall.top)
+                if overlap_x <= 0 or overlap_y <= 0:
+                    continue
+                if overlap_x < overlap_y:
+                    if wr.centerx < wall.centerx:
+                        wolf.x -= overlap_x + margin
+                    else:
+                        wolf.x += overlap_x + margin
+                else:
+                    if wr.centery < wall.centery:
+                        wolf.y -= overlap_y + margin
+                    else:
+                        wolf.y += overlap_y + margin
 
     def _has_line_of_sight(self, from_pos: pygame.Vector2, to_pos: pygame.Vector2) -> bool:
         delta = to_pos - from_pos
@@ -2506,7 +2531,7 @@ class Game:
                     heading = to_player.normalize()
                     wolf.facing_x = heading.x
                     wolf.facing_y = heading.y
-                    move = heading * 120.0 * dt
+                    move = heading * 80.0 * dt
                     wolf.x += move.x
                     wolf.y += move.y
             else:
@@ -2514,7 +2539,7 @@ class Game:
                     heading = to_player.normalize()
                     wolf.facing_x = heading.x
                     wolf.facing_y = heading.y
-                    move = heading * 28.0 * dt
+                    move = heading * 18.0 * dt
                     wolf.x += move.x
                     wolf.y += move.y
 
@@ -2522,6 +2547,7 @@ class Game:
                     wolf.lunge_timer = 0.3
                     wolf.charge_timer = 1.5
 
+        self._resolve_wolf_walls(wolf)
         if self.player.colliderect(wolf.rect) and self.hit_cooldown <= 0:
             damage = 20 if wolf.lunge_timer > 0 else 12
             self.health = max(0, self.health - damage)
@@ -3761,7 +3787,11 @@ class Game:
         self.screen.blit(prompt, (px, py))
 
     def draw_victory_screen(self, view_rect: pygame.Rect) -> None:
-        text = self.big_font.render("YOU ESCAPED", True, (92, 179, 130))
+        is_level1 = self.current_area in ("final", "area3")
+        title = "LEVEL 1 COMPLETE" if is_level1 else "YOU ESCAPED"
+        prompt_text = "Press any key to continue" if is_level1 else "Press any key to exit"
+
+        text = self.big_font.render(title, True, (92, 179, 130))
         tx = view_rect.centerx - text.get_width() // 2
         ty = view_rect.centery - text.get_height() // 2 - 20
         self.screen.blit(text, (tx, ty))
@@ -3773,7 +3803,7 @@ class Game:
         sy = ty + 24
         self.screen.blit(stats, (sx, sy))
 
-        prompt = self.ui_small_font.render("Press any key to exit", True, (90, 122, 106))
+        prompt = self.ui_small_font.render(prompt_text, True, (90, 122, 106))
         px = view_rect.centerx - prompt.get_width() // 2
         py = sy + 20
         self.screen.blit(prompt, (px, py))
